@@ -9,6 +9,10 @@ router.use(authMiddleware);
 // [GET] /api/staff/orders
 router.get('/orders', staffController.getOrders);
 
+// Thống kê doanh thu thực tế
+router.get('/revenue/stats', staffController.getRevenueStats);
+router.get('/revenue/orders', staffController.getRevenueOrders);
+
 // [PATCH] /api/staff/orders/:orderId/status
 router.patch('/orders/:orderId/status', staffController.updateOrderStatus);
 

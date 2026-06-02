@@ -377,4 +377,209 @@ exports.deleteProduct = async (req, res) => {
     }
 };
 
+// ========================== THỐNG KÊ DOANH THU THỰC TẾ ==========================
+
+// Helper: Lấy điều kiện thời gian cho SQL
+const getDateFilterCondition = (filterType, startDateStr, endDateStr, params) => {
+    let condition = "";
+    
+    switch (filterType) {
+        case 'today':
+            condition = " AND DATE(o.created_at) = CURDATE()";
+            break;
+        case 'yesterday':
+            condition = " AND DATE(o.created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
+            break;
+        case 'seven_days':
+            condition = " AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+            break;
+        case 'this_month':
+            condition = " AND o.created_at >= DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')";
+            break;
+        case 'custom':
+            if (startDateStr && endDateStr) {
+                condition = " AND o.created_at BETWEEN ? AND ?";
+                params.push(`${startDateStr} 00:00:00`);
+                params.push(`${endDateStr} 23:59:59`);
+            }
+            break;
+        default:
+            // Mặc định là 'today'
+            condition = " AND DATE(o.created_at) = CURDATE()";
+    }
+    return condition;
+};
+
+// [GET] /api/staff/revenue/stats
+exports.getRevenueStats = async (req, res) => {
+    try {
+        const { filterType = 'today', startDate, endDate } = req.query;
+        
+        // 1. Lấy điều kiện ngày
+        const paramsOverview = [];
+        const dateCondition = getDateFilterCondition(filterType, startDate, endDate, paramsOverview);
+        
+        // 2. Query thông tin tổng quan (KPIs)
+        const overviewQuery = `
+            SELECT 
+                COALESCE(SUM(o.total_amount), 0) as total_revenue,
+                COUNT(o.id) as total_orders,
+                COALESCE(AVG(o.total_amount), 0) as avg_order_value
+            FROM orders o
+            WHERE o.payment_status = 'paid' AND o.status != 'cancelled' ${dateCondition}
+        `;
+        const [[overview]] = await pool.query(overviewQuery, paramsOverview);
+
+        // 3. Cơ cấu phương thức thanh toán
+        const paramsPayment = [];
+        const dateConditionPayment = getDateFilterCondition(filterType, startDate, endDate, paramsPayment);
+        const paymentQuery = `
+            SELECT 
+                o.payment_method,
+                COUNT(o.id) as count,
+                COALESCE(SUM(o.total_amount), 0) as total_revenue
+            FROM orders o
+            WHERE o.payment_status = 'paid' AND o.status != 'cancelled' ${dateConditionPayment}
+            GROUP BY o.payment_method
+        `;
+        const [paymentBreakdown] = await pool.query(paymentQuery, paramsPayment);
+
+        // 4. Doanh thu theo ngày (Biểu đồ xu hướng)
+        const paramsTrend = [];
+        const dateConditionTrend = getDateFilterCondition(filterType, startDate, endDate, paramsTrend);
+        const trendQuery = `
+            SELECT 
+                DATE_FORMAT(o.created_at, '%Y-%m-%d') as date,
+                COUNT(o.id) as count,
+                COALESCE(SUM(o.total_amount), 0) as total_revenue
+            FROM orders o
+            WHERE o.payment_status = 'paid' AND o.status != 'cancelled' ${dateConditionTrend}
+            GROUP BY DATE(o.created_at)
+            ORDER BY DATE(o.created_at) ASC
+        `;
+        const [dailyTrend] = await pool.query(trendQuery, paramsTrend);
+
+        // 5. Top 5 món bán chạy nhất
+        const paramsTopItems = [];
+        const dateConditionTop = getDateFilterCondition(filterType, startDate, endDate, paramsTopItems);
+        const topItemsQuery = `
+            SELECT 
+                oi.product_name,
+                SUM(oi.quantity) as quantity_sold,
+                COALESCE(SUM(oi.subtotal), 0) as total_revenue
+            FROM order_items oi
+            JOIN orders o ON oi.order_id = o.id
+            WHERE o.payment_status = 'paid' AND o.status != 'cancelled' ${dateConditionTop}
+            GROUP BY oi.product_id, oi.product_name
+            ORDER BY quantity_sold DESC, total_revenue DESC
+            LIMIT 5
+        `;
+        const [topProducts] = await pool.query(topItemsQuery, paramsTopItems);
+
+        // 6. Tính toán doanh số từ topping
+        const paramsToppings = [];
+        const dateConditionToppings = getDateFilterCondition(filterType, startDate, endDate, paramsToppings);
+        const toppingsQuery = `
+            SELECT 
+                COALESCE(SUM(oit.price * oit.quantity), 0) as toppings_revenue
+            FROM order_item_toppings oit
+            JOIN order_items oi ON oit.order_item_id = oi.id
+            JOIN orders o ON oi.order_id = o.id
+            WHERE o.payment_status = 'paid' AND o.status != 'cancelled' ${dateConditionToppings}
+        `;
+        const [[toppingsOverview]] = await pool.query(toppingsQuery, paramsToppings);
+
+        res.json({
+            overview: {
+                total_revenue: parseFloat(overview.total_revenue),
+                total_orders: parseInt(overview.total_orders),
+                avg_order_value: parseFloat(overview.avg_order_value),
+                toppings_revenue: parseFloat(toppingsOverview.toppings_revenue)
+            },
+            paymentBreakdown: paymentBreakdown.map(p => ({
+                payment_method: p.payment_method,
+                count: parseInt(p.count),
+                total_revenue: parseFloat(p.total_revenue)
+            })),
+            dailyTrend: dailyTrend.map(d => ({
+                date: d.date,
+                count: parseInt(d.count),
+                total_revenue: parseFloat(d.total_revenue)
+            })),
+            topProducts: topProducts.map(p => ({
+                product_name: p.product_name,
+                quantity_sold: parseInt(p.quantity_sold),
+                total_revenue: parseFloat(p.total_revenue)
+            }))
+        });
+
+    } catch (error) {
+        console.error('Lỗi API getRevenueStats:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ khi lấy thống kê doanh thu' });
+    }
+};
+
+// [GET] /api/staff/revenue/orders
+exports.getRevenueOrders = async (req, res) => {
+    try {
+        const { search = '', filterType = 'today', startDate, endDate } = req.query;
+        
+        const params = [];
+        let query = `
+            SELECT o.id, o.order_code, o.status, o.total_amount, o.payment_status, 
+                   o.payment_method, o.created_at, dt.table_name, dt.table_code
+            FROM orders o
+            JOIN dining_tables dt ON o.table_id = dt.id
+            WHERE o.payment_status = 'paid' AND o.status != 'cancelled'
+        `;
+        
+        // Thêm điều kiện thời gian
+        query += getDateFilterCondition(filterType, startDate, endDate, params);
+
+        // Thêm điều kiện tìm kiếm (Mã đơn hoặc Tên bàn)
+        if (search) {
+            query += " AND (o.order_code LIKE ? OR dt.table_name LIKE ?)";
+            params.push(`%${search}%`);
+            params.push(`%${search}%`);
+        }
+
+        query += " ORDER BY o.created_at DESC";
+
+        const [orders] = await pool.query(query, params);
+
+        if (orders.length === 0) {
+            return res.json([]);
+        }
+
+        // Lấy chi tiết món ăn của các đơn hàng này
+        const orderIds = orders.map(o => o.id);
+        const [items] = await pool.query(
+            `SELECT oi.id, oi.order_id, oi.product_name, oi.unit_price, oi.quantity, oi.subtotal
+             FROM order_items oi
+             WHERE oi.order_id IN (?)`,
+            [orderIds]
+        );
+
+        // Ghép món ăn vào đơn tương ứng
+        const ordersWithItems = orders.map(order => {
+            return {
+                ...order,
+                items: items.filter(item => item.order_id === order.id).map(item => ({
+                    product_name: item.product_name,
+                    unit_price: parseFloat(item.unit_price),
+                    quantity: parseInt(item.quantity),
+                    subtotal: parseFloat(item.subtotal)
+                }))
+            };
+        });
+
+        res.json(ordersWithItems);
+
+    } catch (error) {
+        console.error('Lỗi API getRevenueOrders:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ khi lấy danh sách hóa đơn doanh thu' });
+    }
+};
+
+
 

@@ -4,7 +4,7 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import { 
   Bell, LogOut, Check, Utensils, Award, X, CheckCircle, Clock, 
-  MapPin, AlertCircle, ShoppingBag, CreditCard, User, RotateCcw, Plus, Layers, Package
+  MapPin, AlertCircle, ShoppingBag, CreditCard, User, RotateCcw, Plus, Layers, Package, TrendingUp
 } from 'lucide-react';
 
 const API_BASE_URL = `http://${window.location.hostname}:5001/api/staff`;
@@ -17,6 +17,8 @@ const StaffDashboard = () => {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [user, setUser] = useState(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [unpaidOrders, setUnpaidOrders] = useState([]);
   
   // Trạng thái toast thông báo nhanh
   const [toast, setToast] = useState({ show: false, message: '', orderCode: '' });
@@ -33,7 +35,6 @@ const StaffDashboard = () => {
 
   // Lấy danh sách bàn kèm các món ăn chưa thanh toán gom nhóm theo từng đơn hàng cụ thể
   const getTablesWithUnpaid = () => {
-    const unpaidOrders = orders.filter(o => o.payment_status === 'unpaid' && o.status !== 'cancelled');
     const tables = {};
 
     unpaidOrders.forEach(order => {
@@ -175,6 +176,33 @@ const StaffDashboard = () => {
     }
   };
 
+  // Lấy số lượng đơn hàng chờ nhận
+  const fetchPendingCount = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_BASE_URL}/orders?status=pending`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setPendingCount(res.data.length);
+    } catch (err) {
+      console.error('Lỗi lấy số lượng đơn chờ:', err);
+    }
+  };
+
+  // Lấy toàn bộ đơn hàng chưa thanh toán cho modal
+  const fetchUnpaidOrders = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_BASE_URL}/orders?status=all`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const unpaid = res.data.filter(o => o.payment_status === 'unpaid' && o.status !== 'cancelled');
+      setUnpaidOrders(unpaid);
+    } catch (err) {
+      console.error('Lỗi lấy danh sách đơn chưa thanh toán:', err);
+    }
+  };
+
   // Lấy danh sách đơn hàng
   const fetchOrders = async () => {
     try {
@@ -184,6 +212,8 @@ const StaffDashboard = () => {
       });
       setOrders(res.data);
       setError('');
+      fetchPendingCount();
+      fetchUnpaidOrders();
     } catch (err) {
       console.error('Lỗi lấy danh sách đơn hàng:', err);
       if (err.response?.status === 401 || err.response?.status === 403) {
@@ -405,6 +435,22 @@ const StaffDashboard = () => {
             <Package size={18} />
             <span>Quản lý thực đơn</span>
           </button>
+
+          <button
+            onClick={() => navigate('/staff/order-history')}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-heading font-bold transition-all duration-200 cursor-pointer text-slate-400 hover:bg-white/5 hover:text-slate-200"
+          >
+            <Clock size={18} />
+            <span>Lịch sử gọi món</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/staff/revenue')}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-heading font-bold transition-all duration-200 cursor-pointer text-slate-400 hover:bg-white/5 hover:text-slate-200"
+          >
+            <TrendingUp size={18} />
+            <span>Quản lý doanh thu</span>
+          </button>
         </nav>
 
         {/* Thông tin User & Logout ở đáy */}
@@ -463,6 +509,7 @@ const StaffDashboard = () => {
             <div className="flex items-center gap-4">
               <button 
                 onClick={() => {
+                  fetchUnpaidOrders();
                   setIsSplitPaymentOpen(true);
                   setSelectedTableCode(null);
                   setSelectedSplitItems({});
@@ -484,19 +531,23 @@ const StaffDashboard = () => {
             { id: 'pending', label: 'Chờ nhận đơn' },
             { id: 'confirmed', label: 'Đang chế biến' },
             { id: 'served', label: 'Đã lên món' },
-            { id: 'completed', label: 'Đã thanh toán' },
             { id: 'cancelled', label: 'Đã hủy' }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-xs font-heading font-extrabold rounded-2xl border transition-all duration-200 cursor-pointer ${
+              className={`relative px-4 py-2 text-xs font-heading font-extrabold rounded-2xl border transition-all duration-200 cursor-pointer ${
                 activeTab === tab.id
                   ? 'bg-gradient-to-r from-primary to-orange-500 text-white border-transparent shadow-lg shadow-primary/10'
                   : 'bg-slate-950 text-gray-400 border-white/5 hover:border-white/10 hover:text-white'
               }`}
             >
-              {tab.label}
+              <span>{tab.label}</span>
+              {tab.id === 'pending' && pendingCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center border border-slate-950 font-sans shadow-lg animate-bounce">
+                  {pendingCount}
+                </span>
+              )}
             </button>
           ))}
         </div>

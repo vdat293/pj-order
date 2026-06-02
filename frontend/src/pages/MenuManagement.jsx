@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Utensils, Plus, Trash2, Edit2, Check, X, ToggleLeft, ToggleRight, 
-  Layers, Package, Coffee, ChevronRight, LogOut, ArrowLeft, Image, Tag, DollarSign, ListFilter, PlusCircle
+  Layers, Package, Coffee, ChevronRight, LogOut, ArrowLeft, Image, Tag, DollarSign, ListFilter, PlusCircle, TrendingUp, CreditCard, Clock
 } from 'lucide-react';
 
 const API_BASE_URL = `http://${window.location.hostname}:5001/api/staff`;
@@ -365,6 +365,30 @@ const MenuManagement = () => {
           >
             <Package size={18} />
             <span>Quản lý thực đơn</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/staff/order-history')}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-heading font-bold transition-all duration-200 cursor-pointer ${
+              location.pathname === '/staff/order-history'
+                ? 'bg-gradient-to-r from-primary to-orange-500 text-white shadow-lg shadow-primary/20'
+                : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+            }`}
+          >
+            <Clock size={18} />
+            <span>Lịch sử gọi món</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/staff/revenue')}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-heading font-bold transition-all duration-200 cursor-pointer ${
+              location.pathname === '/staff/revenue'
+                ? 'bg-gradient-to-r from-primary to-orange-500 text-white shadow-lg shadow-primary/20'
+                : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+            }`}
+          >
+            <TrendingUp size={18} />
+            <span>Quản lý doanh thu</span>
           </button>
         </nav>
 
