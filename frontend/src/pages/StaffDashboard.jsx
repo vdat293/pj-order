@@ -4,11 +4,11 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import { 
   Bell, LogOut, Check, Utensils, Award, X, CheckCircle, Clock, 
-  MapPin, AlertCircle, ShoppingBag, CreditCard, User, RotateCcw
+  MapPin, AlertCircle, ShoppingBag, CreditCard, User, RotateCcw, Plus, Layers, Package
 } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:5001/api/staff';
-const SOCKET_URL = 'http://localhost:5001';
+const API_BASE_URL = `http://${window.location.hostname}:5001/api/staff`;
+const SOCKET_URL = `http://${window.location.hostname}:5001`;
 
 const StaffDashboard = () => {
   const navigate = useNavigate();
@@ -20,6 +20,7 @@ const StaffDashboard = () => {
   
   // Trạng thái toast thông báo nhanh
   const [toast, setToast] = useState({ show: false, message: '', orderCode: '' });
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const socketRef = useRef(null);
 
@@ -27,6 +28,8 @@ const StaffDashboard = () => {
   const [isSplitPaymentOpen, setIsSplitPaymentOpen] = useState(false);
   const [selectedTableCode, setSelectedTableCode] = useState(null);
   const [selectedSplitItems, setSelectedSplitItems] = useState({}); // { [orderItemId]: quantity }
+
+
 
   // Lấy danh sách bàn kèm các món ăn chưa thanh toán gom nhóm theo từng đơn hàng cụ thể
   const getTablesWithUnpaid = () => {
@@ -349,7 +352,7 @@ const StaffDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex">
       {/* Toast Notification Alert */}
       {toast.show && (
         <div className="fixed top-6 right-6 z-50 max-w-sm bg-slate-900 border border-primary/40 rounded-2xl p-4 shadow-2xl flex gap-3 animate-float-up">
@@ -366,56 +369,112 @@ const StaffDashboard = () => {
         </div>
       )}
 
-      {/* Modern Header */}
-      <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-white/5 py-4 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-orange-500 rounded-xl flex items-center justify-center shadow-md shadow-primary/20">
-              <Utensils className="text-white h-5 w-5" />
-            </div>
-            <div className="text-left">
-              <h1 className="text-lg font-extrabold tracking-tight font-heading flex items-center gap-1.5">
-                Bảng điều khiển nhận đơn
-              </h1>
-              <p className="text-xs text-gray-400 font-body">Cập nhật đơn hàng thực khách tức thời</p>
-            </div>
+      {/* 1. SIDEBAR CHO HOST/ADMIN */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-white/5 flex flex-col transition-transform duration-300 transform lg:translate-x-0 ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:static lg:flex'}`}>
+        <div className="p-6 border-b border-white/5 flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-primary to-orange-500 rounded-xl flex items-center justify-center shadow-md shadow-primary/20">
+            <Utensils className="text-white h-5 w-5" />
           </div>
-
-          <div className="flex items-center gap-4">
-            {user && (
-              <div className="flex items-center gap-2.5 bg-white/5 border border-white/10 py-1.5 px-3.5 rounded-2xl">
-                <div className="w-7 h-7 bg-primary/20 text-primary rounded-full flex items-center justify-center">
-                  <User size={14} />
-                </div>
-                <div className="text-left">
-                  <p className="text-xs font-extrabold font-heading text-white">{user.name}</p>
-                  <p className="text-[9px] font-bold font-body text-primary uppercase tracking-wider">{user.role}</p>
-                </div>
-              </div>
-            )}
-
-            <button 
-              onClick={() => {
-                setIsSplitPaymentOpen(true);
-                setSelectedTableCode(null);
-                setSelectedSplitItems({});
-              }}
-              className="p-2.5 bg-gradient-to-r from-primary to-orange-500 hover:from-primary/95 hover:to-orange-500/95 text-white rounded-2xl transition-all duration-200 cursor-pointer flex items-center gap-2 text-xs font-heading font-bold"
-            >
-              <CreditCard size={16} />
-              <span>Thanh toán</span>
-            </button>
-
-            <button 
-              onClick={handleLogout}
-              className="p-2.5 bg-white/5 border border-white/10 hover:bg-rose-500/10 hover:border-rose-500/20 text-gray-400 hover:text-rose-400 rounded-2xl transition-all duration-200 cursor-pointer flex items-center gap-2 text-xs font-heading font-bold"
-            >
-              <LogOut size={16} />
-              <span className="hidden md:inline">Đăng xuất</span>
-            </button>
+          <div className="text-left">
+            <h2 className="text-sm font-extrabold tracking-wider font-heading text-white uppercase">Phở Gia Truyền</h2>
+            <p className="text-[10px] text-gray-400 font-body">Hệ thống quản trị Host</p>
           </div>
+          {/* Nút đóng sidebar di động */}
+          <button 
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="lg:hidden ml-auto text-slate-400 hover:text-white p-1"
+          >
+            <X size={18} />
+          </button>
         </div>
-      </header>
+
+        {/* Danh sách tab điều hướng */}
+        <nav className="flex-1 px-4 py-6 space-y-2">
+          <button
+            onClick={() => navigate('/staff/orders')}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-heading font-bold transition-all duration-200 cursor-pointer bg-gradient-to-r from-primary to-orange-500 text-white shadow-lg shadow-primary/20"
+          >
+            <Layers size={18} />
+            <span>Màn nhận đơn</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/staff/menu')}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-heading font-bold transition-all duration-200 cursor-pointer text-slate-400 hover:bg-white/5 hover:text-slate-200"
+          >
+            <Package size={18} />
+            <span>Quản lý thực đơn</span>
+          </button>
+        </nav>
+
+        {/* Thông tin User & Logout ở đáy */}
+        <div className="p-4 border-t border-white/5 space-y-3">
+          {user && (
+            <div className="flex items-center gap-3 bg-white/5 border border-white/10 p-3 rounded-2xl">
+              <div className="w-8 h-8 bg-primary/20 text-primary rounded-full flex items-center justify-center font-bold">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="text-left overflow-hidden">
+                <p className="text-xs font-extrabold font-heading text-white truncate">{user.name}</p>
+                <p className="text-[9px] font-bold font-body text-primary uppercase tracking-wider">{user.role}</p>
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-white/5 hover:bg-rose-500/10 hover:border-rose-500/20 text-gray-400 hover:text-rose-400 text-xs font-heading font-bold transition-all duration-200 cursor-pointer"
+          >
+            <LogOut size={14} />
+            <span>Đăng xuất tài khoản</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Background Overlay cho Sidebar trên di động */}
+      {isMobileSidebarOpen && (
+        <div 
+          onClick={() => setIsMobileSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-black/60 lg:hidden backdrop-blur-sm"
+        />
+      )}
+
+      {/* 2. CHỨA NỘI DUNG CHÍNH */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Modern Header */}
+        <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-white/5 py-4 px-6">
+          <div className="max-w-7xl mx-auto flex justify-between items-center gap-4">
+            <div className="flex items-center gap-3">
+              {/* Nút Hamburger bật Sidebar di động */}
+              <button 
+                onClick={() => setIsMobileSidebarOpen(true)}
+                className="lg:hidden p-2 text-slate-400 hover:text-white bg-white/5 rounded-xl border border-white/10 cursor-pointer"
+              >
+                <Utensils size={18} />
+              </button>
+              <div className="text-left">
+                <h1 className="text-lg font-extrabold tracking-tight font-heading flex items-center gap-1.5">
+                  Bảng điều khiển nhận đơn
+                </h1>
+                <p className="text-xs text-gray-400 font-body hidden sm:block">Cập nhật đơn hàng thực khách tức thời</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => {
+                  setIsSplitPaymentOpen(true);
+                  setSelectedTableCode(null);
+                  setSelectedSplitItems({});
+                }}
+                className="p-2.5 bg-gradient-to-r from-primary to-orange-500 hover:from-primary/95 hover:to-orange-500/95 text-white rounded-2xl transition-all duration-200 cursor-pointer flex items-center gap-2 text-xs font-heading font-bold"
+              >
+                <CreditCard size={16} />
+                <span>Thanh toán</span>
+              </button>
+            </div>
+          </div>
+        </header>
 
       {/* Tabs bar */}
       <div className="bg-slate-900 border-b border-white/5 py-3 px-6 overflow-x-auto scrollbar-none flex justify-center">
@@ -519,8 +578,29 @@ const StaffDashboard = () => {
                             <span className="font-heading font-extrabold text-primary">{item.quantity}x</span>
                             <span className="font-heading font-semibold text-gray-200">{item.product_name}</span>
                           </div>
+                          
+                          {/* Hiển thị toppings đi kèm món ăn cho bếp */}
+                          {item.toppings && item.toppings.length > 0 && (
+                            <div className="flex flex-col gap-0.5 mt-1 pl-3 text-[10px] font-bold font-body leading-tight">
+                              {/* Ăn cùng (Trong tô) */}
+                              {item.toppings.filter(t => t.type === 'cung').length > 0 && (
+                                <div className="text-emerald-400">
+                                  <span className="text-emerald-500 font-extrabold uppercase mr-1">[Ăn cùng]:</span>
+                                  {item.toppings.filter(t => t.type === 'cung').map(t => t.topping_name || t.name).join(', ')}
+                                </div>
+                              )}
+                              {/* Ăn thêm (Đĩa riêng) */}
+                              {item.toppings.filter(t => t.type === 'them').length > 0 && (
+                                <div className="text-orange-400">
+                                  <span className="text-orange-500 font-extrabold uppercase mr-1">[Ăn thêm]:</span>
+                                  {item.toppings.filter(t => t.type === 'them').map(t => t.topping_name || t.name).join(', ')}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           {item.note && (
-                            <p className="text-[10px] text-gray-400 italic mt-0.5 pl-3 border-l-2 border-primary/20 font-body">
+                            <p className="text-[10px] text-gray-400 italic mt-1 pl-3 border-l-2 border-primary/20 font-body">
                               {item.note}
                             </p>
                           )}
@@ -595,6 +675,7 @@ const StaffDashboard = () => {
           </div>
         )}
       </main>
+    </div>
 
       {/* OVERLAY THANH TOÁN CHIA MÓN / CHIA TIỀN */}
       {isSplitPaymentOpen && (
@@ -736,6 +817,23 @@ const StaffDashboard = () => {
                                         <p className="text-xs font-heading font-semibold text-slate-300">
                                           {item.product_name} <span className="text-primary font-bold ml-1">(x{item.quantity})</span>
                                         </p>
+                                        
+                                        {/* Hiển thị toppings chi tiết cho hóa đơn chia tiền */}
+                                        {item.toppings && item.toppings.length > 0 && (
+                                          <div className="flex flex-col pl-2 mt-0.5 text-[9px] font-semibold font-body leading-snug">
+                                            {item.toppings.filter(t => t.type === 'cung').length > 0 && (
+                                              <span className="text-emerald-400">
+                                                Ăn cùng: {item.toppings.filter(t => t.type === 'cung').map(t => t.topping_name || t.name).join(', ')}
+                                              </span>
+                                            )}
+                                            {item.toppings.filter(t => t.type === 'them').length > 0 && (
+                                              <span className="text-orange-400">
+                                                Ăn thêm: {item.toppings.filter(t => t.type === 'them').map(t => t.topping_name || t.name).join(', ')}
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+                                        
                                         <p className="text-[9px] text-gray-500 font-body mt-0.5">{formatPrice(item.unit_price)} / món</p>
                                       </div>
                                     </div>
@@ -785,6 +883,8 @@ const StaffDashboard = () => {
           </div>
         </div>
       )}
+
+
     </div>
   );
 };

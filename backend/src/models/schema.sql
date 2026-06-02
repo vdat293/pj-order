@@ -98,3 +98,33 @@ CREATE TABLE IF NOT EXISTS order_status_logs (
     FOREIGN KEY (order_id) REFERENCES orders(id),
     FOREIGN KEY (changed_by) REFERENCES users(id)
 );
+
+-- Bảng toppings: Danh sách toppings/món thêm cho danh mục hoặc món ăn.
+CREATE TABLE IF NOT EXISTS toppings (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    product_id BIGINT NULL,
+    category_id BIGINT NULL,
+    name VARCHAR(100) NOT NULL,
+    price DECIMAL(12,2) NOT NULL DEFAULT 0,
+    type ENUM('them', 'cung') NOT NULL DEFAULT 'them',
+    is_available BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+);
+
+-- Bảng order_item_toppings: Toppings được chọn cho mỗi chi tiết món ăn trong đơn hàng.
+CREATE TABLE IF NOT EXISTS order_item_toppings (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    order_item_id BIGINT NOT NULL,
+    topping_id BIGINT NOT NULL,
+    topping_name VARCHAR(100) NOT NULL,
+    price DECIMAL(12,2) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (topping_id) REFERENCES toppings(id)
+);
+

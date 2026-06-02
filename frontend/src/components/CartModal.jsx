@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Minus, Plus, ShoppingBag, ClipboardList } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
-const CartModal = ({ isOpen, onClose, onCheckout, isSubmitting }) => {
+const CartModal = ({ isOpen, onClose, onCheckout, onEditItem, isSubmitting }) => {
     const { cart, updateQuantity, totalPrice, totalItems } = useCart();
     const [orderNote, setOrderNote] = useState('');
 
@@ -28,7 +28,7 @@ const CartModal = ({ isOpen, onClose, onCheckout, isSubmitting }) => {
             ></div>
 
             {/* Bottom Sheet */}
-            <div className={`relative w-full max-w-lg bg-white rounded-t-[2.5rem] shadow-2xl flex flex-col h-[82vh] overflow-hidden z-10 transition-all duration-300 ease-out transform ${
+            <div className={`relative w-full max-w-lg bg-white rounded-t-[2rem] shadow-2xl flex flex-col h-[80vh] overflow-hidden z-10 transition-all duration-300 ease-out transform ${
                 isOpen ? 'translate-y-0' : 'translate-y-full'
             }`}>
                 
@@ -56,7 +56,7 @@ const CartModal = ({ isOpen, onClose, onCheckout, isSubmitting }) => {
                 </div>
 
                 {/* Cart Items */}
-                <div className="flex-1 overflow-y-auto px-6 py-4 space-y-1">
+                <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-1">
                     {cart.length === 0 ? (
                         <div className="text-center py-20 flex flex-col items-center justify-center gap-4">
                             <div className="w-20 h-20 rounded-full bg-surface-container-high/60 flex items-center justify-center">
@@ -69,43 +69,97 @@ const CartModal = ({ isOpen, onClose, onCheckout, isSubmitting }) => {
                         </div>
                     ) : (
                         <>
-                            {cart.map((item, index) => (
-                                <div key={index} className="flex justify-between items-center py-4 border-b border-gray-100/60 last:border-b-0 group/item">
-                                    {/* Item info */}
-                                    <div className="flex-1 pr-4">
-                                        <h4 className="font-heading font-bold text-on-surface text-sm sm:text-base leading-snug line-clamp-2">
-                                            {item.name}
-                                        </h4>
-                                        <p className="text-primary font-heading font-extrabold text-sm mt-1">
-                                            {formatPrice(item.price * item.quantity)}
-                                        </p>
-                                        
-                                        {item.note && (
-                                            <div className="inline-flex items-center gap-1 text-[11px] text-on-surface-variant/60 mt-2 bg-surface-container-low py-1.5 px-2.5 rounded-lg border border-gray-100/50 italic font-body">
-                                                <span>📝</span>
-                                                <span className="font-medium text-on-surface-variant/80">{item.note}</span>
+                            {cart.map((item, index) => {
+                                const toppingsPrice = (item.toppings || []).reduce((sum, t) => sum + Number(t.price), 0);
+                                const rowTotal = (Number(item.price) + toppingsPrice) * item.quantity;
+                                
+                                return (
+                                    <div key={index} className="flex justify-between items-center py-4 border-b border-gray-100/60 last:border-b-0 group/item">
+                                        {/* Item info */}
+                                        <div className="flex-1 pr-4">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                <h4 className="font-heading font-bold text-on-surface text-sm sm:text-base leading-snug line-clamp-2">
+                                                    {item.name}
+                                                </h4>
+                                                {onEditItem && (
+                                                    <button
+                                                        onClick={() => onEditItem(index)}
+                                                        className="p-1 rounded-lg text-primary/75 hover:text-primary hover:bg-primary/5 active:scale-90 transition-all duration-200"
+                                                        aria-label="Sửa món này"
+                                                        title="Sửa cấu hình món"
+                                                    >
+                                                        <svg className="w-3.5 h-3.5 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                        </svg>
+                                                    </button>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
 
-                                    {/* Quantity stepper */}
-                                    <div className="flex items-center gap-2 bg-surface-container-high/60 rounded-2xl p-1 flex-shrink-0">
-                                        <button 
-                                            onClick={() => updateQuantity(index, -1)}
-                                            className="w-8 h-8 bg-white shadow-sm text-on-surface-variant rounded-xl flex items-center justify-center hover:text-primary transition-colors duration-200 active:scale-90"
-                                        >
-                                            <Minus size={14} className="stroke-[2.5]" />
-                                        </button>
-                                        <span className="w-5 text-center font-heading font-extrabold text-on-surface text-sm">{item.quantity}</span>
-                                        <button 
-                                            onClick={() => updateQuantity(index, 1)}
-                                            className="w-8 h-8 bg-white shadow-sm text-on-surface-variant rounded-xl flex items-center justify-center hover:text-primary transition-colors duration-200 active:scale-90"
-                                        >
-                                            <Plus size={14} className="stroke-[2.5]" />
-                                        </button>
+                                            {/* Toppings list split */}
+                                            {item.toppings && item.toppings.length > 0 && (
+                                                <div className="space-y-1 mt-1.5 mb-1 text-left">
+                                                    {/* Món ăn cùng */}
+                                                    {item.toppings.filter(t => t.type === 'cung').length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 items-center">
+                                                            <span className="text-[10px] font-heading font-extrabold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">Ăn cùng:</span>
+                                                            {item.toppings.filter(t => t.type === 'cung').map((top, tIdx) => (
+                                                                <span 
+                                                                    key={tIdx} 
+                                                                    className="inline-flex items-center text-[10px] font-body font-semibold text-emerald-700 bg-emerald-500/[0.03] px-2 py-0.5 rounded-md border border-emerald-600/10"
+                                                                >
+                                                                    +{top.name}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {/* Món ăn thêm */}
+                                                    {item.toppings.filter(t => t.type === 'them').length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 items-center mt-1">
+                                                            <span className="text-[10px] font-heading font-extrabold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Ăn thêm:</span>
+                                                            {item.toppings.filter(t => t.type === 'them').map((top, tIdx) => (
+                                                                <span 
+                                                                    key={tIdx} 
+                                                                    className="inline-flex items-center text-[10px] font-body font-semibold text-amber-700 bg-amber-500/[0.03] px-2 py-0.5 rounded-md border border-amber-600/10"
+                                                                >
+                                                                    +{top.name}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            <p className="text-primary font-heading font-extrabold text-sm mt-1">
+                                                {formatPrice(rowTotal)}
+                                            </p>
+                                            
+                                            {item.note && (
+                                                <div className="inline-flex items-center gap-1 text-[11px] text-on-surface-variant/60 mt-2 bg-surface-container-low py-1.5 px-2.5 rounded-lg border border-gray-100/50 italic font-body">
+                                                    <span>📝</span>
+                                                    <span className="font-medium text-on-surface-variant/80">{item.note}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Quantity stepper */}
+                                        <div className="flex items-center gap-2 bg-surface-container-high/60 rounded-2xl p-1 flex-shrink-0">
+                                            <button 
+                                                onClick={() => updateQuantity(index, -1)}
+                                                className="w-8 h-8 bg-white shadow-sm text-on-surface-variant rounded-xl flex items-center justify-center hover:text-primary transition-colors duration-200 active:scale-90"
+                                            >
+                                                <Minus size={14} className="stroke-[2.5]" />
+                                            </button>
+                                            <span className="w-5 text-center font-heading font-extrabold text-on-surface text-sm">{item.quantity}</span>
+                                            <button 
+                                                onClick={() => updateQuantity(index, 1)}
+                                                className="w-8 h-8 bg-white shadow-sm text-on-surface-variant rounded-xl flex items-center justify-center hover:text-primary transition-colors duration-200 active:scale-90"
+                                            >
+                                                <Plus size={14} className="stroke-[2.5]" />
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
 
                             {/* Order note */}
                             <div className="mt-4 border-t border-gray-100/80 pt-4 pb-2">
@@ -129,7 +183,7 @@ const CartModal = ({ isOpen, onClose, onCheckout, isSubmitting }) => {
 
                 {/* Checkout Footer as flex sibling */}
                 {cart.length > 0 && (
-                    <div className="bg-white/95 backdrop-blur-md border-t border-gray-100/80 p-5 pb-7 flex flex-col z-20 flex-shrink-0 shadow-[0_-8px_24px_rgba(0,0,0,0.03)]">
+                    <div className="bg-white/95 backdrop-blur-md border-t border-gray-100/80 px-5 pt-4 flex flex-col z-20 flex-shrink-0 shadow-[0_-4px_16px_rgba(0,0,0,0.03)]" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
                         <div className="flex justify-between items-center mb-4 px-1">
                             <span className="font-body font-semibold text-on-surface-variant/70 text-sm">Tổng tiền tạm tính</span>
                             <span className="text-2xl font-heading font-extrabold text-primary">{formatPrice(totalPrice)}</span>
@@ -159,3 +213,4 @@ const CartModal = ({ isOpen, onClose, onCheckout, isSubmitting }) => {
 };
 
 export default CartModal;
+

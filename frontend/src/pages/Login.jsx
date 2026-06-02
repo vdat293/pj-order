@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { LogIn, Key, Mail, ShieldAlert, Sparkles, ChefHat } from 'lucide-react';
 
-const API_AUTH_URL = 'http://localhost:5001/api/auth';
+const API_AUTH_URL = `http://${window.location.hostname}:5001/api/auth`;
 
 const Login = () => {
     const [email, setEmail] = useState('');

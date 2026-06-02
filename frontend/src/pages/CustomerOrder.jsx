@@ -7,7 +7,7 @@ import ProductCard from '../components/ProductCard';
 import CartModal from '../components/CartModal';
 import ProductDetailModal from '../components/ProductDetailModal';
 
-const API_BASE_URL = 'http://localhost:5001/api/public';
+const API_BASE_URL = `http://${window.location.hostname}:5001/api/public`;
 
 // Bản đồ Emoji động theo tên danh mục ẩm thực Việt
 const categoryEmojis = {
@@ -43,13 +43,17 @@ const CustomerOrder = () => {
     const categoryTabsRef = useRef(null);
     const isManualScrolling = useRef(false);
 
+    // States for editing a cart item
+    const [editingCartItemIndex, setEditingCartItemIndex] = useState(null);
+    const [editingCartItem, setEditingCartItem] = useState(null);
+
     // Animation state for floating cart
     const [cartAnimate, setCartAnimate] = useState(false);
     
     // Header scroll state
     const [isScrolled, setIsScrolled] = useState(false);
 
-    const { totalItems, totalPrice, cart, clearCart } = useCart();
+    const { totalItems, totalPrice, cart, clearCart, updateCartItem } = useCart();
 
     // Giả lập token được quét từ mã QR trên URL (vd: ?token=abc)
     const queryParams = new URLSearchParams(window.location.search);
@@ -81,13 +85,30 @@ const CustomerOrder = () => {
         fetchInitialData();
     }, [tableCode, token]);
 
-    // Scroll header effect
+    // Scroll header effect — debounced with hysteresis to prevent flickering
+    const scrolledRef = useRef(false);
+    const rafRef = useRef(null);
     useEffect(() => {
         const handleHeaderScroll = () => {
-            setIsScrolled(window.scrollY > 20);
+            if (rafRef.current) return;
+            rafRef.current = requestAnimationFrame(() => {
+                const y = window.scrollY;
+                // Hysteresis: trigger at 30px going down, un-trigger at 10px going up
+                if (!scrolledRef.current && y > 30) {
+                    scrolledRef.current = true;
+                    setIsScrolled(true);
+                } else if (scrolledRef.current && y < 10) {
+                    scrolledRef.current = false;
+                    setIsScrolled(false);
+                }
+                rafRef.current = null;
+            });
         };
         window.addEventListener('scroll', handleHeaderScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleHeaderScroll);
+        return () => {
+            window.removeEventListener('scroll', handleHeaderScroll);
+            if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        };
     }, []);
 
     // Trình theo dõi vị trí cuộn để thay đổi Active Category Tab (Scrollspy)
@@ -175,7 +196,12 @@ const CustomerOrder = () => {
                 items: cart.map(item => ({
                     product_id: item.product_id,
                     quantity: item.quantity,
-                    note: item.note
+                    note: item.note,
+                    toppings: (item.toppings || []).map(t => ({
+                        topping_id: t.id,
+                        name: t.name,
+                        price: t.price
+                    }))
                 }))
             };
 
@@ -190,6 +216,24 @@ const CustomerOrder = () => {
             alert(error.response?.data?.message || 'Có lỗi xảy ra khi đặt món');
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleEditItem = (index) => {
+        const item = cart[index];
+        // Tìm sản phẩm gốc trong menu để truyền cho ProductDetailModal
+        let baseProduct = null;
+        for (const cat of menu) {
+            baseProduct = cat.products.find(p => p.id === item.product_id);
+            if (baseProduct) break;
+        }
+        
+        if (baseProduct) {
+            setEditingCartItemIndex(index);
+            setEditingCartItem(item);
+            setSelectedProduct(baseProduct);
+            setIsCartOpen(false); // Đóng giỏ hàng
+            setIsDetailOpen(true); // Mở chi tiết dưới dạng Edit Mode
         }
     };
 
@@ -316,11 +360,11 @@ const CustomerOrder = () => {
         <div className="bg-surface min-h-screen pb-32">
             
             {/* Sticky Header & Tabs Container */}
-            <div className={`sticky top-0 z-40 transition-all duration-300 ${
+            <div className={`sticky top-0 z-40 transition-[background-color,box-shadow,backdrop-filter] duration-200 ease-out will-change-[background-color,box-shadow] border-b border-gray-100/50 ${
                 isScrolled 
                     ? 'header-scrolled' 
                     : 'bg-white/95 backdrop-blur-md'
-            } border-b border-gray-100/50`}>
+            }`}>
                 
                 {/* Header chính */}
                 <div className="px-5 py-3 flex justify-between items-center max-w-lg mx-auto">
@@ -386,9 +430,9 @@ const CustomerOrder = () => {
                                     key={category.id}
                                     id={`tab-${category.id}`}
                                     onClick={() => scrollToCategory(category.id)}
-                                    className={`px-4 py-2.5 rounded-2xl text-xs font-heading font-bold whitespace-nowrap transition-all duration-300 border ${
+                                    className={`px-4 py-2.5 rounded-2xl text-xs font-heading font-bold whitespace-nowrap transition-[background,color,border-color,box-shadow] duration-200 border ${
                                         activeCategory === category.id
-                                            ? 'bg-gradient-to-r from-primary to-orange-500 text-white border-transparent shadow-md shadow-primary/15 scale-[1.03]'
+                                            ? 'bg-gradient-to-r from-primary to-orange-500 text-white border-transparent shadow-md shadow-primary/15'
                                             : 'bg-white text-on-surface-variant/60 border-gray-100/80 hover:bg-surface-container-low hover:border-gray-200/80'
                                     }`}
                                 >
@@ -523,16 +567,17 @@ const CustomerOrder = () => {
             {/* Floating Glassmorphic Cart Bar */}
             {totalItems > 0 && (
                 <div 
-                    className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[92%] max-w-md z-30 transition-all duration-400 ${
+                    className={`fixed left-1/2 transform -translate-x-1/2 w-[92%] max-w-md z-30 transition-transform duration-300 ${
                         cartAnimate ? 'scale-[1.02]' : ''
                     }`}
+                    style={{ bottom: 'max(1.25rem, env(safe-area-inset-bottom, 1.25rem))' }}
                 >
                     <button 
                         onClick={() => setIsCartOpen(true)}
-                        className="w-full glass-panel-dark text-white shadow-2xl shadow-black/20 rounded-3xl p-4 flex justify-between items-center active:scale-[0.97] transition-all duration-200"
+                        className="w-full glass-panel-dark text-white shadow-2xl shadow-black/20 rounded-2xl p-3.5 flex justify-between items-center active:scale-[0.97] transition-all duration-200"
                     >
                         <div className="flex items-center gap-3">
-                            <div className="relative bg-gradient-to-br from-primary to-orange-500 p-2.5 rounded-xl text-white shadow-md shadow-primary/20">
+                            <div className="relative bg-gradient-to-br from-primary to-orange-500 p-2 rounded-xl text-white shadow-md shadow-primary/20">
                                 <ShoppingBag size={18} className="stroke-[2.5]" />
                                 <span className="absolute -top-1.5 -right-1.5 bg-white text-primary font-heading font-extrabold text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-900 animate-bounce-subtle">
                                     {totalItems}
@@ -540,11 +585,11 @@ const CustomerOrder = () => {
                             </div>
                             <div className="text-left">
                                 <p className="text-[10px] text-gray-400 font-heading font-bold uppercase tracking-wider">Tổng cộng</p>
-                                <p className="text-base font-heading font-extrabold text-white">{formatPrice(totalPrice)}</p>
+                                <p className="text-sm font-heading font-extrabold text-white">{formatPrice(totalPrice)}</p>
                             </div>
                         </div>
                         
-                        <div className="flex items-center gap-1.5 bg-gradient-to-r from-primary to-orange-500 text-white py-2.5 px-4 rounded-2xl font-heading font-bold text-xs shadow-md shadow-primary/10">
+                        <div className="flex items-center gap-1.5 bg-gradient-to-r from-primary to-orange-500 text-white py-2 px-3.5 rounded-xl font-heading font-bold text-xs shadow-md shadow-primary/10">
                             <span>Xem giỏ</span>
                             <ArrowRight size={14} className="stroke-[3]" />
                         </div>
@@ -555,8 +600,19 @@ const CustomerOrder = () => {
             {/* Food Detail Bottom Sheet */}
             <ProductDetailModal 
                 isOpen={isDetailOpen}
-                onClose={() => setIsDetailOpen(false)}
+                onClose={() => {
+                    setIsDetailOpen(false);
+                    setEditingCartItemIndex(null);
+                    setEditingCartItem(null);
+                }}
                 product={selectedProduct}
+                isEditMode={editingCartItemIndex !== null}
+                initialQuantity={editingCartItem?.quantity}
+                initialNote={editingCartItem?.note}
+                initialToppings={editingCartItem?.toppings}
+                onUpdate={(quantity, note, toppings) => {
+                    updateCartItem(editingCartItemIndex, { quantity, note, toppings });
+                }}
             />
 
             {/* Cart Bottom Sheet */}
@@ -564,6 +620,7 @@ const CustomerOrder = () => {
                 isOpen={isCartOpen} 
                 onClose={() => setIsCartOpen(false)} 
                 onCheckout={handleCheckout}
+                onEditItem={handleEditItem}
                 isSubmitting={isSubmitting}
             />
         </div>

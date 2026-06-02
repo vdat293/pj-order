@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ClipboardCheck, ThumbsUp, ChefHat, CheckCircle, ArrowLeft, Receipt, PhoneCall, Timer, Sparkles } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:5001/api/public';
+const API_BASE_URL = `http://${window.location.hostname}:5001/api/public`;
 
 const OrderStatus = () => {
     const { orderId } = useParams();
@@ -316,8 +316,43 @@ const OrderStatus = () => {
                                         <span className="font-heading font-extrabold text-on-surface">{item.quantity}x</span>
                                         <span className="font-heading font-semibold text-on-surface/80">{item.product_name}</span>
                                     </div>
+                                    
+                                    {/* Hiển thị toppings đã chọn trên hóa đơn / trạng thái của khách */}
+                                    {item.toppings && item.toppings.length > 0 && (
+                                        <div className="space-y-1 mt-1.5 pl-5 text-left">
+                                            {/* Món ăn cùng */}
+                                            {item.toppings.filter(t => t.type === 'cung').length > 0 && (
+                                                <div className="flex flex-wrap gap-1 items-center">
+                                                    <span className="text-[10px] font-heading font-extrabold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">Ăn cùng:</span>
+                                                    {item.toppings.filter(t => t.type === 'cung').map((top, tIdx) => (
+                                                        <span 
+                                                            key={tIdx} 
+                                                            className="inline-flex items-center text-[10px] font-body font-semibold text-emerald-700 bg-emerald-500/[0.03] px-2 py-0.5 rounded-md border border-emerald-600/10"
+                                                        >
+                                                            +{top.topping_name || top.name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {/* Món ăn thêm */}
+                                            {item.toppings.filter(t => t.type === 'them').length > 0 && (
+                                                <div className="flex flex-wrap gap-1 items-center mt-1">
+                                                    <span className="text-[10px] font-heading font-extrabold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Ăn thêm:</span>
+                                                    {item.toppings.filter(t => t.type === 'them').map((top, tIdx) => (
+                                                        <span 
+                                                            key={tIdx} 
+                                                            className="inline-flex items-center text-[10px] font-body font-semibold text-amber-700 bg-amber-500/[0.03] px-2 py-0.5 rounded-md border border-amber-600/10"
+                                                        >
+                                                            +{top.topping_name || top.name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {item.note && (
-                                        <p className="text-[11px] text-on-surface-variant/50 italic mt-1 pl-4 border-l-2 border-primary/15 font-body">
+                                        <p className="text-[11px] text-on-surface-variant/50 italic mt-1.5 pl-4 border-l-2 border-primary/15 font-body">
                                             Ghi chú: {item.note}
                                         </p>
                                     )}

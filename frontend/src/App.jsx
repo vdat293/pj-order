@@ -5,6 +5,7 @@ import CustomerOrder from './pages/CustomerOrder';
 import OrderStatus from './pages/OrderStatus';
 import Login from './pages/Login';
 import StaffDashboard from './pages/StaffDashboard';
+import MenuManagement from './pages/MenuManagement';
 import PrivateRoute from './components/PrivateRoute';
 
 function App() {
@@ -33,6 +34,16 @@ function App() {
               </PrivateRoute>
             } 
           />
+
+          {/* Bảng quản lý thực đơn món ăn & toppings của nhân viên */}
+          <Route 
+            path="/staff/menu" 
+            element={
+              <PrivateRoute>
+                <MenuManagement />
+              </PrivateRoute>
+            } 
+          />
         </Routes>
       </Router>
     </CartProvider>
@@ -40,3 +51,4 @@ function App() {
 }
 
 export default App;
+

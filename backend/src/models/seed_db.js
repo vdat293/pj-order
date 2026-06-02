@@ -9,6 +9,8 @@ const seedDB = async () => {
         await pool.query('SET FOREIGN_KEY_CHECKS = 0');
         
         // 1. Làm sạch dữ liệu cũ
+        await pool.query('DELETE FROM order_item_toppings');
+        await pool.query('DELETE FROM toppings');
         await pool.query('DELETE FROM order_items');
         await pool.query('DELETE FROM order_status_logs');
         await pool.query('DELETE FROM orders');
@@ -76,7 +78,45 @@ const seedDB = async () => {
             `, [tableCode, tableName, qrToken]);
         }
 
-        console.log('✅ Đã khởi tạo cơ sở dữ liệu mẫu Phở, Bún Bò, Cơm Chiên thành công!');
+        // 6. Thêm toppings mẫu cho các danh mục
+        console.log('🌱 Đang nạp dữ liệu toppings mẫu...');
+        const defaultToppings = [
+            // Phở (category_id = 1)
+            { category_id: 1, name: 'Gân bò hầm nhừ', price: 15000, type: 'cung' },
+            { category_id: 1, name: 'Nạm bò giòn ngọt', price: 15000, type: 'cung' },
+            { category_id: 1, name: 'Thịt bò tái thêm', price: 20000, type: 'cung' },
+            { category_id: 1, name: 'Trứng gà chần', price: 5000, type: 'them' },
+            { category_id: 1, name: 'Quẩy giòn giòn (1 đĩa)', price: 5000, type: 'them' },
+            { category_id: 1, name: 'Bánh phở gọi thêm', price: 10000, type: 'them' },
+
+            // Bún bò (category_id = 2)
+            { category_id: 2, name: 'Bò viên dai sần sật (2 viên)', price: 10000, type: 'cung' },
+            { category_id: 2, name: 'Gân bò thêm', price: 15000, type: 'cung' },
+            { category_id: 2, name: 'Giò khoanh thêm', price: 15000, type: 'cung' },
+            { category_id: 2, name: 'Chả cua thêm', price: 10000, type: 'cung' },
+
+            // Bún bò trộn (category_id = 3)
+            { category_id: 3, name: 'Thịt bò xào sả thêm', price: 15000, type: 'cung' },
+            { category_id: 3, name: 'Chả giò chiên thêm (1 chiếc)', price: 8000, type: 'them' },
+
+            // Cơm chiên (category_id = 4)
+            { category_id: 4, name: 'Lạp xưởng tươi chiên thêm', price: 10000, type: 'cung' },
+            { category_id: 4, name: 'Trứng ốp la lòng đào', price: 5000, type: 'them' },
+
+            // Giải khát (category_id = 5)
+            { category_id: 5, name: 'Hạt chia hữu cơ', price: 3000, type: 'them' },
+            { category_id: 5, name: 'Thạch sương sáo thanh mát', price: 5000, type: 'them' },
+            { category_id: 5, name: 'Hạt sen bùi bùi thêm', price: 5000, type: 'them' }
+        ];
+
+        for (const top of defaultToppings) {
+            await pool.query(
+                'INSERT INTO toppings (category_id, name, price, type) VALUES (?, ?, ?, ?)',
+                [top.category_id, top.name, top.price, top.type]
+            );
+        }
+
+        console.log('✅ Đã khởi tạo cơ sở dữ liệu mẫu Phở, Bún Bò, Cơm Chiên và Toppings phân loại thành công!');
         process.exit(0);
     } catch (error) {
         console.error('❌ Lỗi khi khởi tạo dữ liệu mẫu:', error.message);

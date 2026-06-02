@@ -35,11 +35,24 @@ exports.getMenu = async (req, res) => {
             'SELECT id, category_id, name, price, description, image_url, is_available FROM products WHERE is_active = TRUE ORDER BY sort_order ASC'
         );
 
+        // Lấy tất cả toppings đang hoạt động và sẵn sàng phục vụ
+        const [toppings] = await pool.query(
+            'SELECT id, product_id, category_id, name, price, type, is_available FROM toppings WHERE is_active = TRUE AND is_available = TRUE'
+        );
+
+        // Gộp toppings vào món ăn tương ứng dựa trên product_id hoặc category_id
+        const productsWithToppings = products.map(prod => {
+            return {
+                ...prod,
+                toppings: toppings.filter(t => t.product_id === prod.id || t.category_id === prod.category_id)
+            };
+        });
+
         // Gộp món ăn vào danh mục tương ứng
         const menu = categories.map(cat => ({
             id: cat.id,
             name: cat.name,
-            products: products.filter(p => p.category_id === cat.id)
+            products: productsWithToppings.filter(p => p.category_id === cat.id)
         }));
 
         res.json(menu);
@@ -103,15 +116,46 @@ exports.createOrder = async (req, res) => {
                 throw new Error(`Món "${product.name}" hiện đang hết hàng`);
             }
 
+            // Tính toán tổng tiền các toppings được chọn từ DB để an toàn và chính xác
+            let toppingsPrice = 0;
+            const itemToppings = [];
+
+            if (item.toppings && item.toppings.length > 0) {
+                const toppingIds = item.toppings.map(t => t.topping_id || t.id);
+                const [toppingRows] = await connection.query(
+                    'SELECT id, name, price, is_available FROM toppings WHERE id IN (?)',
+                    [toppingIds]
+                );
+
+                for (const top of toppingRows) {
+                    if (!top.is_available) {
+                        throw new Error(`Topping "${top.name}" hiện đang tạm hết`);
+                    }
+                    toppingsPrice += parseFloat(top.price);
+                    itemToppings.push(top);
+                }
+            }
+
             const quantity = parseInt(item.quantity) || 1;
-            const subtotal = product.price * quantity;
+            const unitPrice = parseFloat(product.price) + toppingsPrice;
+            const subtotal = unitPrice * quantity;
             totalAmount += subtotal;
 
-            await connection.query(
+            const [orderItemResult] = await connection.query(
                 `INSERT INTO order_items (order_id, product_id, product_name, unit_price, quantity, note, subtotal) 
                  VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [orderId, item.product_id, product.name, product.price, quantity, item.note || '', subtotal]
+                [orderId, item.product_id, product.name, unitPrice, quantity, item.note || '', subtotal]
             );
+            const orderItemId = orderItemResult.insertId;
+
+            // Chèn toppings đã chọn vào bảng order_item_toppings
+            for (const top of itemToppings) {
+                await connection.query(
+                    `INSERT INTO order_item_toppings (order_item_id, topping_id, topping_name, price, quantity)
+                     VALUES (?, ?, ?, ?, 1)`,
+                    [orderItemId, top.id, top.name, top.price]
+                );
+            }
         }
 
         // Cập nhật lại tổng tiền cho đơn hàng
@@ -187,6 +231,21 @@ exports.getOrderDetails = async (req, res) => {
              WHERE oi.order_id = ?`,
             [orderId]
         );
+
+        if (items.length > 0) {
+            const itemIds = items.map(item => item.id);
+            const [toppings] = await pool.query(
+                `SELECT oit.id, oit.order_item_id, oit.topping_id, oit.topping_name, oit.price, oit.quantity, t.type
+                 FROM order_item_toppings oit
+                 LEFT JOIN toppings t ON oit.topping_id = t.id
+                 WHERE oit.order_item_id IN (?)`,
+                [itemIds]
+            );
+
+            items.forEach(item => {
+                item.toppings = toppings.filter(t => t.order_item_id === item.id);
+            });
+        }
 
         res.json({
             order: {

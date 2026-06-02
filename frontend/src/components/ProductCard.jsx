@@ -14,12 +14,16 @@ const ProductCard = ({ product, onSelect }) => {
 
     const handleIncrement = (e) => {
         e.stopPropagation();
+        e.preventDefault();
         if (!product.is_available) return;
-        addToCart(product, 1, '');
+        if (onSelect) {
+            onSelect(product);
+        }
     };
 
     const handleDecrement = (e) => {
         e.stopPropagation();
+        e.preventDefault();
         if (totalQty === 0) return;
         const itemIndex = cart.findIndex(item => item.product_id === product.id);
         if (itemIndex >= 0) {
@@ -36,7 +40,7 @@ const ProductCard = ({ product, onSelect }) => {
     return (
         <div 
             onClick={handleCardClick}
-            className={`group bg-white rounded-3xl p-3.5 border flex items-center justify-between gap-4 mb-1.5 cursor-pointer transition-all duration-300 active:scale-[0.98] relative ${
+            className={`group bg-white rounded-2xl p-3 border flex items-center justify-between gap-3 mb-1.5 cursor-pointer transition-all duration-200 active:scale-[0.98] relative ${
                 totalQty > 0 
                     ? 'active-added-card border-primary/10' 
                     : 'border-gray-100/80 hover:border-gray-200/80 hover:shadow-soft'
@@ -45,18 +49,18 @@ const ProductCard = ({ product, onSelect }) => {
             }`}
         >
             {/* Food info left */}
-            <div className="flex-1 flex flex-col justify-between min-h-[88px] pr-2">
+            <div className="flex-1 flex flex-col justify-between min-h-[80px] pr-1">
                 <div>
-                    <h3 className="font-heading font-bold text-on-surface text-base sm:text-lg line-clamp-1 tracking-tight">
+                    <h3 className="font-heading font-bold text-on-surface text-[15px] line-clamp-1 tracking-tight">
                         {product.name}
                     </h3>
-                    <p className="text-on-surface-variant/70 text-xs sm:text-sm mt-1.5 line-clamp-2 leading-relaxed font-body">
+                    <p className="text-on-surface-variant/60 text-xs mt-1 line-clamp-2 leading-relaxed font-body">
                         {product.description || 'Hương vị thơm ngon truyền thống, được chế biến từ những nguyên liệu tuyển chọn.'}
                     </p>
                 </div>
                 
-                <div className="mt-3 flex items-center gap-2">
-                    <span className="text-primary font-heading font-extrabold text-base sm:text-lg">
+                <div className="mt-2.5 flex items-center gap-2">
+                    <span className="text-primary font-heading font-extrabold text-[15px]">
                         {formatPrice(product.price)}
                     </span>
                     {!product.is_available && (
@@ -68,8 +72,8 @@ const ProductCard = ({ product, onSelect }) => {
             </div>
 
             {/* Food image right */}
-            <div className="relative w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0">
-                <div className="w-full h-full rounded-2xl overflow-hidden bg-surface-container-low border border-gray-100/50 shadow-sm">
+            <div className="relative w-[88px] h-[88px] flex-shrink-0">
+                <div className="w-full h-full rounded-xl overflow-hidden bg-surface-container-low border border-gray-100/50 shadow-sm">
                     <img 
                         src={product.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&auto=format&fit=crop&q=60&ixlib=rb-4.0.3'} 
                         alt={product.name}
@@ -89,7 +93,7 @@ const ProductCard = ({ product, onSelect }) => {
 
                 {/* Add/Counter button */}
                 {product.is_available && (
-                    <div className="absolute -bottom-2.5 left-1/2 transform -translate-x-1/2 w-[90%] max-w-[100px]">
+                    <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-[85%] max-w-[90px]">
                         {totalQty === 0 ? (
                             <button 
                                 onClick={handleIncrement}
