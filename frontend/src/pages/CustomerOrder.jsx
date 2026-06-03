@@ -102,6 +102,10 @@ const CustomerOrder = () => {
 
                 setTableInfo(tableRes.data.table);
 
+                // Xóa token khỏi thanh địa chỉ sau khi đã xác thực được bàn.
+                const cleanUrl = `${window.location.origin}${window.location.pathname}`;
+                window.history.replaceState({}, '', cleanUrl);
+
                 // Láº¥y menu
                 const menuRes = await axios.get(`${API_BASE_URL}/menu`);
                 setMenu(menuRes.data);

@@ -73,6 +73,20 @@ const toppings = [
     { category_id: 3, name: 'Cả hai', price: 0, type: 'cung' }
 ];
 
+const tableTokens = [
+    'q8vL3mN7pR2xT9cK5dH1',
+    'aP4zW8nQ6tF2yX7kM1sJ',
+    'uH9cL2rV5bN8qT3mD6xF',
+    'fK7pZ1xM4vR9nC2tY5hW',
+    'mT3qJ8dH6sP1aV9xL4cN',
+    'rN5yX2kQ7uF3mZ8pD1hL',
+    'cV8mR4tH1pJ6xN9qW2zK',
+    'xD2hL7pM5cT8nQ3vF1yR',
+    'nQ6xF1mK9rV4tH2pZ7cJ',
+    'pY3cN8qL5xM1hD7vT2rW',
+    'zM7tH2pR5nQ9xF4cV1kL'
+];
+
 const seedDB = async () => {
     try {
         console.log('Dang lam sach va khoi tao lai du lieu mau Pho Huong Phu...');
@@ -119,11 +133,12 @@ const seedDB = async () => {
             );
         }
 
-        for (let i = 1; i <= 10; i++) {
-            const tableCode = `T${i.toString().padStart(2, '0')}`;
+        for (let i = 1; i <= 11; i++) {
+            const tableCode = `B${i.toString().padStart(2, '0')}`;
+            const token = tableTokens[i - 1];
             await pool.query(
                 'INSERT INTO dining_tables (table_code, table_name, qr_token) VALUES (?, ?, ?)',
-                [tableCode, `Bàn ${i}`, `token_table_${i}_abc123`]
+                [tableCode, `Bàn ${i}`, token]
             );
         }
 
