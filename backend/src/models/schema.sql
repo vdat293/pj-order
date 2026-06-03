@@ -67,6 +67,24 @@ CREATE TABLE IF NOT EXISTS orders (
     FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
+-- Bảng table_sessions: Phiên gọi món ngắn hạn sau khi quét QR hợp lệ.
+CREATE TABLE IF NOT EXISTS table_sessions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    table_id BIGINT NOT NULL,
+    order_id BIGINT NULL,
+    session_token VARCHAR(128) UNIQUE NOT NULL,
+    expires_at DATETIME NOT NULL,
+    revoked_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (table_id) REFERENCES dining_tables(id),
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL,
+    INDEX idx_table_sessions_token (session_token),
+    INDEX idx_table_sessions_order_id (order_id),
+    INDEX idx_table_sessions_table_active (table_id, expires_at, revoked_at)
+);
+
 -- Bảng order_items: Chi tiết món trong đơn.
 CREATE TABLE IF NOT EXISTS order_items (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -127,4 +145,3 @@ CREATE TABLE IF NOT EXISTS order_item_toppings (
     FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE CASCADE,
     FOREIGN KEY (topping_id) REFERENCES toppings(id)
 );
-

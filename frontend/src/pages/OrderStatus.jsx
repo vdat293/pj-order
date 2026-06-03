@@ -5,15 +5,38 @@ import { ClipboardCheck, ThumbsUp, ChefHat, CheckCircle, ArrowLeft, Receipt, Pho
 
 const API_BASE_URL = `http://${window.location.hostname}:5001/api/public`;
 
+const getTableSessionStorageKey = (tableCode) => `table_session:${tableCode}`;
+
 const OrderStatus = () => {
     const { orderId } = useParams();
     const navigate = useNavigate();
+    const queryParams = new URLSearchParams(window.location.search);
+    const queryTableCode = queryParams.get('table_code');
+    const storedTableCode = sessionStorage.getItem(`order_table:${orderId}`);
+    const tableCodeParam = queryTableCode || storedTableCode;
+    const querySessionToken = queryParams.get('table_session_token');
+    const storedSessionToken = tableCodeParam ? sessionStorage.getItem(getTableSessionStorageKey(tableCodeParam)) : '';
+    const tableSessionToken = querySessionToken || storedSessionToken || '';
     const [orderData, setOrderData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     const [countdown, setCountdown] = useState(720);
     const [showServedPopup, setShowServedPopup] = useState(false);
+
+    useEffect(() => {
+        if (queryTableCode) {
+            sessionStorage.setItem(`order_table:${orderId}`, queryTableCode);
+        }
+
+        if (querySessionToken && tableCodeParam) {
+            sessionStorage.setItem(getTableSessionStorageKey(tableCodeParam), querySessionToken);
+            const nextUrl = queryTableCode
+                ? `/status/${encodeURIComponent(orderId)}?table_code=${encodeURIComponent(queryTableCode)}`
+                : `/status/${encodeURIComponent(orderId)}`;
+            window.history.replaceState(null, '', nextUrl);
+        }
+    }, [orderId, queryTableCode, querySessionToken, tableCodeParam]);
 
     useEffect(() => {
         if (!orderData) return;
@@ -35,11 +58,24 @@ const OrderStatus = () => {
 
     const fetchOrderDetails = async () => {
         try {
-            const res = await axios.get(`${API_BASE_URL}/orders/${orderId}`);
+            const res = await axios.get(`${API_BASE_URL}/orders/${orderId}`, {
+                params: {
+                    table_code: tableCodeParam,
+                    table_session_token: tableSessionToken
+                }
+            });
             setOrderData(res.data.order);
             setError(null);
         } catch (err) {
             console.error('Lỗi lấy chi tiết đơn hàng:', err);
+            if (err.response?.data?.code === 'TABLE_SESSION_INVALID' || err.response?.status === 401) {
+                if (tableCodeParam) {
+                    sessionStorage.removeItem(getTableSessionStorageKey(tableCodeParam));
+                }
+                sessionStorage.removeItem(`order_table:${orderId}`);
+                navigate('/', { replace: true });
+                return;
+            }
             setError(err.response?.data?.message || 'Không thể lấy thông tin đơn hàng');
         } finally {
             setLoading(false);
@@ -52,7 +88,7 @@ const OrderStatus = () => {
             fetchOrderDetails();
         }, 4000);
         return () => clearInterval(interval);
-    }, [orderId]);
+    }, [orderId, tableCodeParam, tableSessionToken, navigate]);
 
     useEffect(() => {
         if (!orderData) return;

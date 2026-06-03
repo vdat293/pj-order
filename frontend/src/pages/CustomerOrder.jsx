@@ -9,6 +9,15 @@ import ProductDetailModal from '../components/ProductDetailModal';
 
 const API_BASE_URL = `http://${window.location.hostname}:5001/api/public`;
 
+const createIdempotencyKey = () => {
+    if (window.crypto?.randomUUID) {
+        return window.crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+};
+
+const getTableSessionStorageKey = (tableCode) => `table_session:${tableCode}`;
+
 // Bản đồ emoji theo tên danh mục.
 const categoryEmojis = {
     'Phở': '🍜',
@@ -42,6 +51,7 @@ const CustomerOrder = () => {
     const [activeCategory, setActiveCategory] = useState(null);
     const categoryTabsRef = useRef(null);
     const isManualScrolling = useRef(false);
+    const checkoutIdempotencyKeyRef = useRef(null);
 
     // States for editing a cart item
     const [editingCartItemIndex, setEditingCartItemIndex] = useState(null);
@@ -55,15 +65,41 @@ const CustomerOrder = () => {
 
     const { totalItems, totalPrice, cart, clearCart, updateCartItem } = useCart();
 
-    // Token được quét từ mã QR trên URL (vd: ?token=abc)
+    // QR token chỉ dùng lần đầu để đổi sang session 30 phút, rồi ẩn khỏi URL.
     const queryParams = new URLSearchParams(window.location.search);
-    const token = queryParams.get('token') || 'token_table_1_abc123';
+    const queryToken = queryParams.get('token');
+    const [tableSessionToken, setTableSessionToken] = useState(
+        sessionStorage.getItem(getTableSessionStorageKey(tableCode)) || ''
+    );
+
+    useEffect(() => {
+        if (!queryToken) return;
+
+        window.history.replaceState(null, '', `/order/${encodeURIComponent(tableCode)}`);
+    }, [queryToken, tableCode]);
 
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
                 // Lấy thông tin bàn
-                const tableRes = await axios.get(`${API_BASE_URL}/tables/${tableCode}?token=${token}`);
+                if (!queryToken && !tableSessionToken) {
+                    throw new Error('Thiếu phiên QR');
+                }
+
+                const tableRes = await axios.get(`${API_BASE_URL}/tables/${tableCode}`, {
+                    params: queryToken
+                        ? { token: queryToken }
+                        : { table_session_token: tableSessionToken }
+                });
+
+                if (tableRes.data.table_session?.token) {
+                    sessionStorage.setItem(
+                        getTableSessionStorageKey(tableCode),
+                        tableRes.data.table_session.token
+                    );
+                    setTableSessionToken(tableRes.data.table_session.token);
+                }
+
                 setTableInfo(tableRes.data.table);
 
                 // Láº¥y menu
@@ -76,6 +112,11 @@ const CustomerOrder = () => {
                 }
             } catch (error) {
                 console.error('Lỗi tải dữ liệu:', error);
+                if (error.response?.data?.code === 'TABLE_SESSION_INVALID' || error.response?.status === 401) {
+                    sessionStorage.removeItem(getTableSessionStorageKey(tableCode));
+                    navigate('/', { replace: true });
+                    return;
+                }
                 alert('Không thể tải thông tin bàn hoặc mã QR không hợp lệ!');
             } finally {
                 setLoading(false);
@@ -83,7 +124,7 @@ const CustomerOrder = () => {
         };
 
         fetchInitialData();
-    }, [tableCode, token]);
+    }, [tableCode, queryToken, tableSessionToken, navigate]);
 
     // Scroll header effect â€” debounced with hysteresis to prevent flickering
     const scrolledRef = useRef(false);
@@ -185,13 +226,14 @@ const CustomerOrder = () => {
     };
 
     const handleCheckout = async (customerNote) => {
-        if (cart.length === 0) return;
+        if (cart.length === 0 || isSubmitting) return;
         setIsSubmitting(true);
+        checkoutIdempotencyKeyRef.current = checkoutIdempotencyKeyRef.current || createIdempotencyKey();
         
         try {
             const payload = {
                 table_code: tableCode,
-                qr_token: token,
+                table_session_token: tableSessionToken,
                 customer_note: customerNote,
                 items: cart.map(item => ({
                     product_id: item.product_id,
@@ -205,16 +247,27 @@ const CustomerOrder = () => {
                 }))
             };
 
-            const response = await axios.post(`${API_BASE_URL}/orders`, payload);
+            const response = await axios.post(`${API_BASE_URL}/orders`, payload, {
+                headers: {
+                    'Idempotency-Key': checkoutIdempotencyKeyRef.current
+                }
+            });
             clearCart();
             setIsCartOpen(false);
             
             // Chuyển hướng sang trang trạng thái
-            navigate(`/status/${response.data.order_id}`);
+            sessionStorage.setItem(`order_table:${response.data.order_id}`, tableCode);
+            navigate(`/status/${response.data.order_id}?table_code=${encodeURIComponent(tableCode)}`);
         } catch (error) {
             console.error('Lỗi đặt hàng:', error);
+            if (error.response?.data?.code === 'TABLE_SESSION_INVALID' || error.response?.status === 401) {
+                sessionStorage.removeItem(getTableSessionStorageKey(tableCode));
+                navigate('/', { replace: true });
+                return;
+            }
             alert(error.response?.data?.message || 'Có lỗi xảy ra khi đặt món');
         } finally {
+            checkoutIdempotencyKeyRef.current = null;
             setIsSubmitting(false);
         }
     };
@@ -623,4 +676,3 @@ const CustomerOrder = () => {
 };
 
 export default CustomerOrder;
-

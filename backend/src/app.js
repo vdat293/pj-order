@@ -5,6 +5,7 @@ const cors = require('cors');
 const app = express();
 
 // Middlewares
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json()); // Để parse JSON requests
 app.use(express.urlencoded({ extended: true }));

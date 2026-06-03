@@ -1,8 +1,9 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
+const { getJwtSecret } = require('../config/jwt');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'qr_order_jwt_secret_key_999';
+const JWT_SECRET = getJwtSecret();
 
 exports.login = async (req, res) => {
     try {
