@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ShoppingBag, Search, ChefHat, ArrowRight, X } from 'lucide-react';
@@ -52,6 +52,7 @@ const CustomerOrder = () => {
     const categoryTabsRef = useRef(null);
     const isManualScrolling = useRef(false);
     const checkoutIdempotencyKeyRef = useRef(null);
+    const loadedTableCodeRef = useRef(null);
 
     // States for editing a cart item
     const [editingCartItemIndex, setEditingCartItemIndex] = useState(null);
@@ -73,13 +74,10 @@ const CustomerOrder = () => {
     );
 
     useEffect(() => {
-        if (!queryToken) return;
-
-        window.history.replaceState(null, '', `/order/${encodeURIComponent(tableCode)}`);
-    }, [queryToken, tableCode]);
-
-    useEffect(() => {
         const fetchInitialData = async () => {
+            if (loadedTableCodeRef.current === tableCode) {
+                return;
+            }
             try {
                 // Lấy thông tin bàn
                 if (!queryToken && !tableSessionToken) {
@@ -106,7 +104,7 @@ const CustomerOrder = () => {
                 const cleanUrl = `${window.location.origin}${window.location.pathname}`;
                 window.history.replaceState({}, '', cleanUrl);
 
-                // Láº¥y menu
+                // Lấy menu
                 const menuRes = await axios.get(`${API_BASE_URL}/menu`);
                 setMenu(menuRes.data);
                 
@@ -114,6 +112,8 @@ const CustomerOrder = () => {
                 if (menuRes.data.length > 0) {
                     setActiveCategory(menuRes.data[0].id);
                 }
+
+                loadedTableCodeRef.current = tableCode;
             } catch (error) {
                 console.error('Lỗi tải dữ liệu:', error);
                 if (error.response?.data?.code === 'TABLE_SESSION_INVALID' || error.response?.status === 401) {
