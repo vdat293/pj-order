@@ -329,7 +329,7 @@ const MenuManagement = () => {
             <Utensils className="text-white h-5 w-5" />
           </div>
           <div className="text-left">
-            <h2 className="text-sm font-extrabold tracking-wider font-heading text-white uppercase">Phở Gia Truyền</h2>
+            <h2 className="text-sm font-extrabold tracking-wider font-heading text-white">Phở Hương Phú</h2>
             <p className="text-[10px] text-gray-400 font-body">Hệ thống quản trị Host</p>
           </div>
           {/* Nút đóng sidebar di động */}

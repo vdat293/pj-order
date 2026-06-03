@@ -32,7 +32,19 @@ exports.getMenu = async (req, res) => {
 
         // Lấy tất cả món ăn đang bán
         const [products] = await pool.query(
-            'SELECT id, category_id, name, price, description, image_url, is_available FROM products WHERE is_active = TRUE ORDER BY sort_order ASC'
+            `SELECT 
+                p.id, p.category_id, p.name, p.price, p.description, p.image_url, p.is_available,
+                COALESCE((
+                    SELECT SUM(oi.quantity)
+                    FROM order_items oi
+                    JOIN orders o ON o.id = oi.order_id
+                    WHERE oi.product_id = p.id
+                      AND oi.status <> 'cancelled'
+                      AND o.status <> 'cancelled'
+                ), 0) AS order_count
+             FROM products p
+             WHERE p.is_active = TRUE
+             ORDER BY p.sort_order ASC`
         );
 
         // Lấy tất cả toppings đang hoạt động và sẵn sàng phục vụ
@@ -103,7 +115,7 @@ exports.createOrder = async (req, res) => {
 
         for (const item of items) {
             const [productRows] = await connection.query(
-                'SELECT name, price, is_available FROM products WHERE id = ?',
+                'SELECT name, price, category_id, is_available FROM products WHERE id = ?',
                 [item.product_id]
             );
 
@@ -123,7 +135,7 @@ exports.createOrder = async (req, res) => {
             if (item.toppings && item.toppings.length > 0) {
                 const toppingIds = item.toppings.map(t => t.topping_id || t.id);
                 const [toppingRows] = await connection.query(
-                    'SELECT id, name, price, is_available FROM toppings WHERE id IN (?)',
+                    'SELECT id, category_id, name, price, type, is_available FROM toppings WHERE id IN (?)',
                     [toppingIds]
                 );
 
@@ -133,6 +145,17 @@ exports.createOrder = async (req, res) => {
                     }
                     toppingsPrice += parseFloat(top.price);
                     itemToppings.push(top);
+                }
+            }
+
+            if (product.category_id === 3) {
+                const meatOptions = ['Thịt heo', 'Thịt bò', 'Cả hai'];
+                const selectedMeatOptions = itemToppings.filter(top =>
+                    top.category_id === 3 && meatOptions.includes(top.name)
+                );
+
+                if (selectedMeatOptions.length !== 1) {
+                    throw new Error(`Món "${product.name}" cần chọn đúng 1 loại thịt: thịt heo, thịt bò hoặc cả hai`);
                 }
             }
 

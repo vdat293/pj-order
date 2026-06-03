@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ShoppingBag, Search, ChefHat, ArrowRight, X } from 'lucide-react';
@@ -9,15 +9,15 @@ import ProductDetailModal from '../components/ProductDetailModal';
 
 const API_BASE_URL = `http://${window.location.hostname}:5001/api/public`;
 
-// Bản đồ Emoji động theo tên danh mục ẩm thực Việt
+// Bản đồ emoji theo tên danh mục.
 const categoryEmojis = {
     'Phở': '🍜',
     'Bún bò': '🍲',
     'Bún bò trộn': '🥗',
-    'Cơm chiên': '🍛',
-    'Giải khát': '🥤',
+    'Cơm gà xối mỡ': '🍛',
+    'Nước uống': '🥤',
     'Cà phê': '☕',
-    'Trà sữa': '🍵',
+    'Trà sữa': '🧋',
     'Món ăn nhẹ': '🍟'
 };
 
@@ -55,7 +55,7 @@ const CustomerOrder = () => {
 
     const { totalItems, totalPrice, cart, clearCart, updateCartItem } = useCart();
 
-    // Giả lập token được quét từ mã QR trên URL (vd: ?token=abc)
+    // Token được quét từ mã QR trên URL (vd: ?token=abc)
     const queryParams = new URLSearchParams(window.location.search);
     const token = queryParams.get('token') || 'token_table_1_abc123';
 
@@ -66,7 +66,7 @@ const CustomerOrder = () => {
                 const tableRes = await axios.get(`${API_BASE_URL}/tables/${tableCode}?token=${token}`);
                 setTableInfo(tableRes.data.table);
 
-                // Lấy menu
+                // Láº¥y menu
                 const menuRes = await axios.get(`${API_BASE_URL}/menu`);
                 setMenu(menuRes.data);
                 
@@ -85,7 +85,7 @@ const CustomerOrder = () => {
         fetchInitialData();
     }, [tableCode, token]);
 
-    // Scroll header effect — debounced with hysteresis to prevent flickering
+    // Scroll header effect â€” debounced with hysteresis to prevent flickering
     const scrolledRef = useRef(false);
     const rafRef = useRef(null);
     useEffect(() => {
@@ -111,7 +111,7 @@ const CustomerOrder = () => {
         };
     }, []);
 
-    // Trình theo dõi vị trí cuộn để thay đổi Active Category Tab (Scrollspy)
+    // Theo dõi vị trí cuộn để thay đổi active category tab.
     useEffect(() => {
         if (menu.length === 0) return;
 
@@ -130,7 +130,7 @@ const CustomerOrder = () => {
                     if (scrollPosition >= top && scrollPosition < top + height) {
                         setActiveCategory(category.id);
                         
-                        // Tự động cuộn thanh ngang Category Tabs để hiển thị tab đang active
+                        // Tự động cuộn thanh ngang category tabs để hiện tab đang active.
                         const tabElement = document.getElementById(`tab-${category.id}`);
                         if (tabElement && categoryTabsRef.current) {
                             const container = categoryTabsRef.current;
@@ -153,7 +153,7 @@ const CustomerOrder = () => {
         return () => window.removeEventListener('scroll', handleScroll);
     }, [menu]);
 
-    // Kích hoạt hiệu ứng nảy nhẹ khi thêm món mới vào giỏ
+    // Kích hoạt hiệu ứng nảy nhẹ khi thêm món mới vào giỏ.
     useEffect(() => {
         if (totalItems > 0) {
             setCartAnimate(true);
@@ -168,7 +168,7 @@ const CustomerOrder = () => {
             isManualScrolling.current = true;
             setActiveCategory(categoryId);
 
-            const headerOffset = 155; // Chiều cao Sticky Header + Tabs + Search
+            const headerOffset = 155; // Chiá»u cao Sticky Header + Tabs + Search
             const elementPosition = element.getBoundingClientRect().top;
             const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
 
@@ -177,7 +177,7 @@ const CustomerOrder = () => {
                 behavior: 'smooth'
             });
 
-            // Mở khóa scrollspy sau khi hoàn tất cuộn mượt
+            // Mở khóa scrollspy sau khi hoàn tất cuộn mượt.
             setTimeout(() => {
                 isManualScrolling.current = false;
             }, 600);
@@ -221,7 +221,7 @@ const CustomerOrder = () => {
 
     const handleEditItem = (index) => {
         const item = cart[index];
-        // Tìm sản phẩm gốc trong menu để truyền cho ProductDetailModal
+        // Tìm sản phẩm gốc trong menu để truyền cho ProductDetailModal.
         let baseProduct = null;
         for (const cat of menu) {
             baseProduct = cat.products.find(p => p.id === item.product_id);
@@ -232,8 +232,8 @@ const CustomerOrder = () => {
             setEditingCartItemIndex(index);
             setEditingCartItem(item);
             setSelectedProduct(baseProduct);
-            setIsCartOpen(false); // Đóng giỏ hàng
-            setIsDetailOpen(true); // Mở chi tiết dưới dạng Edit Mode
+            setIsCartOpen(false);
+            setIsDetailOpen(true);
         }
     };
 
@@ -246,16 +246,13 @@ const CustomerOrder = () => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
     };
 
-    // Hàm lấy danh sách món ăn bán chạy (Mỗi danh mục lấy 1 món đầu tiên)
+    // Lấy món chạy nhất theo số lượng đã order thật từ backend.
     const getBestSellers = () => {
-        const list = [];
-        menu.forEach(cat => {
-            if (cat.products.length > 0) {
-                const availableProduct = cat.products.find(p => p.is_available) || cat.products[0];
-                list.push(availableProduct);
-            }
-        });
-        return list.slice(0, 4);
+        return menu
+            .flatMap(cat => cat.products)
+            .filter(product => product.is_available)
+            .sort((a, b) => Number(b.order_count || 0) - Number(a.order_count || 0))
+            .slice(0, 4);
     };
 
     // Client-side search filter
@@ -358,7 +355,6 @@ const CustomerOrder = () => {
 
     return (
         <div className="bg-surface min-h-screen pb-32">
-            
             {/* Sticky Header & Tabs Container */}
             <div className={`sticky top-0 z-40 transition-[background-color,box-shadow,backdrop-filter] duration-200 ease-out will-change-[background-color,box-shadow] border-b border-gray-100/50 ${
                 isScrolled 
@@ -373,10 +369,10 @@ const CustomerOrder = () => {
                             <ChefHat size={20} className="stroke-[2.5]" />
                         </div>
                         <div>
-                            <h1 className="text-lg font-heading font-extrabold text-on-surface tracking-tight flex items-center gap-1.5">
-                                QR Order <span className="text-primary text-[9px] font-extrabold px-1.5 py-0.5 rounded-lg bg-primary/5 border border-primary/10">PRO</span>
+                            <h1 className="text-lg font-heading font-extrabold text-on-surface tracking-tight">
+                                Phở Hương Phú
                             </h1>
-                            <p className="text-[10px] text-on-surface-variant/50 font-heading font-semibold tracking-wider uppercase">Ẩm thực Việt tinh túy</p>
+                            <p className="text-[10px] text-on-surface-variant/50 font-heading font-semibold tracking-wider">Phở ngon không thể cưỡng lại</p>
                         </div>
                     </div>
                     
@@ -465,7 +461,7 @@ const CustomerOrder = () => {
                     <div className="mb-2 animate-float-up">
                         <h3 className="font-heading font-extrabold text-on-surface text-sm tracking-wide uppercase mb-3.5 pl-1 flex items-center gap-2">
                             <span className="w-1.5 h-4 rounded-full bg-gradient-to-b from-primary to-orange-500"></span>
-                            <span>🔥 Gợi ý món chạy nhất</span>
+                            <span>Gợi ý món chạy nhất</span>
                         </h3>
                         
                         <div className="flex overflow-x-auto gap-3.5 no-scrollbar pb-3 pt-0.5 -mx-4 px-4 scroll-smooth">
@@ -479,10 +475,9 @@ const CustomerOrder = () => {
                                         onClick={() => handleProductSelect(product)}
                                         className={`w-44 flex-shrink-0 bg-white rounded-3xl p-3 border border-gray-100/80 shadow-soft flex flex-col relative transition-all duration-300 active:scale-[0.97] hover:shadow-soft-lg cursor-pointer group animate-float-up animate-float-up-${idx + 1}`}
                                     >
-                                        {/* Star Badge */}
-                                        <div className="absolute top-4 left-4 glass-card px-2 py-0.5 rounded-lg text-[9px] font-heading font-bold text-amber-600 flex items-center gap-0.5 z-10">
-                                            <span>⭐</span>
-                                            <span>4.9</span>
+                                        {/* Order count badge */}
+                                        <div className="absolute top-4 left-4 glass-card px-2 py-0.5 rounded-lg text-[9px] font-heading font-bold text-primary flex items-center gap-0.5 z-10">
+                                            <span>{Number(product.order_count || 0)} lượt</span>
                                         </div>
 
                                         {/* Food Image */}
@@ -527,7 +522,7 @@ const CustomerOrder = () => {
                             id={`category-${category.id}`}
                             className="pt-2"
                         >
-                            {/* Tiêu đề Danh mục */}
+                            {/* Tiêu đề danh mục */}
                             <div className={`flex items-center gap-2.5 mb-4 pl-1 animate-float-up animate-float-up-${Math.min(catIdx + 1, 5)}`}>
                                 <span className="text-lg">{categoryEmojis[category.name] || '🍽️'}</span>
                                 <h2 className="text-base font-heading font-extrabold text-on-surface uppercase tracking-wide">
@@ -628,3 +623,4 @@ const CustomerOrder = () => {
 };
 
 export default CustomerOrder;
+

@@ -3,7 +3,7 @@ const { pool } = require('../config/database');
 // API: Lấy danh sách toàn bộ đơn hàng (sắp xếp mới nhất trước)
 exports.getOrders = async (req, res) => {
     try {
-        const { status } = req.query;
+        const { status, date } = req.query;
         let query = `
             SELECT o.id, o.order_code, o.status, o.total_amount, o.customer_note, 
                    o.payment_status, o.payment_method, o.created_at, dt.table_name, dt.table_code
@@ -11,10 +11,19 @@ exports.getOrders = async (req, res) => {
             JOIN dining_tables dt ON o.table_id = dt.id
         `;
         const params = [];
+        const conditions = [];
 
         if (status && status !== 'all') {
-            query += ` WHERE o.status = ?`;
+            conditions.push(`o.status = ?`);
             params.push(status);
+        }
+
+        if (date === 'today') {
+            conditions.push(`DATE(o.created_at) = CURDATE()`);
+        }
+
+        if (conditions.length > 0) {
+            query += ` WHERE ${conditions.join(' AND ')}`;
         }
 
         query += ` ORDER BY o.created_at DESC`;

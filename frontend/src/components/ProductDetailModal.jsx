@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { X, Minus, Plus, MessageSquare } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 const EMPTY_ARRAY = [];
+const BUN_BO_TRON_CATEGORY_ID = 3;
+const REQUIRED_MEAT_OPTIONS = ['Thịt heo', 'Thịt bò', 'Cả hai'];
 
 const ProductDetailModal = ({ 
     isOpen, 
@@ -40,7 +42,21 @@ const ProductDetailModal = ({
 
     if (!product) return null;
 
+    const isBunBoTron = product.category_id === BUN_BO_TRON_CATEGORY_ID;
+    const requiredMeatToppings = (product.toppings || []).filter(topping =>
+        topping.type === 'cung' && REQUIRED_MEAT_OPTIONS.includes(topping.name)
+    );
+    const selectedRequiredMeat = selectedToppings.find(topping =>
+        requiredMeatToppings.some(option => option.id === topping.id)
+    );
+    const hasRequiredMeatSelection = !isBunBoTron || Boolean(selectedRequiredMeat);
+
     const handleAdd = () => {
+        if (isBunBoTron && !hasRequiredMeatSelection) {
+            alert('Vui lòng chọn loại thịt cho bún bò trộn');
+            return;
+        }
+
         if (isEditMode && onUpdate) {
             onUpdate(quantity, note, selectedToppings);
         } else {
@@ -64,6 +80,13 @@ const ProductDetailModal = ({
         });
     };
 
+    const handleRequiredMeatSelect = (topping) => {
+        setSelectedToppings(prev => [
+            ...prev.filter(item => !requiredMeatToppings.some(option => option.id === item.id)),
+            topping
+        ]);
+    };
+
     const getUnitTotal = () => {
         const toppingsPrice = selectedToppings.reduce((sum, t) => sum + Number(t.price), 0);
         return Number(product.price) + toppingsPrice;
@@ -73,7 +96,9 @@ const ProductDetailModal = ({
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
     };
 
-    const toppingsCung = (product.toppings || []).filter(t => t.type === 'cung');
+    const toppingsCung = (product.toppings || []).filter(t =>
+        t.type === 'cung' && !requiredMeatToppings.some(option => option.id === t.id)
+    );
     const toppingsThem = (product.toppings || []).filter(t => t.type === 'them');
 
     return (
@@ -107,7 +132,7 @@ const ProductDetailModal = ({
 
                 {/* Scrollable Content */}
                 <div className="flex-1 overflow-y-auto overscroll-contain pb-6">
-                    {/* Food Image — compact on mobile */}
+                    {/* Food Image - compact on mobile */}
                     <div className="relative w-full h-48 sm:h-60 bg-surface-container-low overflow-hidden flex-shrink-0">
                         <img 
                             src={product.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3'} 
@@ -130,14 +155,50 @@ const ProductDetailModal = ({
                         </p>
                     </div>
 
-                    {/* Block 2A: Món ăn cùng (Accompanying Ingredients: Gân, Nạm, Bò viên...) */}
+                    {isBunBoTron && requiredMeatToppings.length > 0 && (
+                        <div className="mt-2">
+                            <div className="bg-gray-50 px-5 py-3 flex justify-between items-center border-y border-gray-100 flex-shrink-0">
+                                <div className="text-left">
+                                    <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider font-heading block">Chọn loại thịt</span>
+                                </div>
+                                <span className="text-[10px] font-bold text-primary bg-primary/8 px-2.5 py-0.5 rounded-full font-body">Bắt buộc</span>
+                            </div>
+
+                            <div className="divide-y divide-gray-100 px-5 bg-white">
+                                {requiredMeatToppings.map(topping => {
+                                    const isSelected = selectedRequiredMeat?.id === topping.id;
+                                    return (
+                                        <div
+                                            key={topping.id}
+                                            onClick={() => handleRequiredMeatSelect(topping)}
+                                            className="flex items-center justify-between py-4 cursor-pointer active:bg-gray-50/50 transition-colors duration-150"
+                                        >
+                                            <span className={`text-xs sm:text-sm font-body font-semibold transition-colors duration-150 ${
+                                                isSelected ? 'text-primary font-bold' : 'text-on-surface/85'
+                                            }`}>
+                                                {topping.name}
+                                            </span>
+                                            <div className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all duration-200 ${
+                                                isSelected
+                                                    ? 'border-primary bg-primary'
+                                                    : 'border-gray-300 bg-white'
+                                            }`}>
+                                                {isSelected && <span className="w-2 h-2 rounded-full bg-white"></span>}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Block 2A: Món ăn cùng */}
                     {toppingsCung.length > 0 && (
                         <div className="mt-2">
                             {/* Section title strip */}
                             <div className="bg-gray-50 px-5 py-3 flex justify-between items-center border-y border-gray-100 flex-shrink-0">
                                 <div className="text-left">
                                     <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider font-heading block">Món ăn cùng (Tùy chọn)</span>
-                                    <span className="text-[9px] text-gray-400 font-body block mt-0.5">Ví dụ: ăn phở tái cùng nạm hầm, gân bò, bò viên... để bát phở tròn vị</span>
                                 </div>
                                 <span className="text-[10px] font-bold text-gray-400 bg-gray-200/65 px-2.5 py-0.5 rounded-full font-body">Chọn nhiều</span>
                             </div>
@@ -185,14 +246,13 @@ const ProductDetailModal = ({
                         </div>
                     )}
 
-                    {/* Block 2B: Món ăn thêm (Side Add-ons: Trứng chần, Quẩy giòn, Bánh phở thêm...) */}
+                    {/* Block 2B: Món ăn thêm */}
                     {toppingsThem.length > 0 && (
                         <div className="mt-2">
                             {/* Section title strip */}
                             <div className="bg-gray-50 px-5 py-3 flex justify-between items-center border-y border-gray-100 flex-shrink-0">
                                 <div className="text-left">
                                     <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider font-heading block">Món ăn thêm (Tùy chọn)</span>
-                                    <span className="text-[9px] text-gray-400 font-body block mt-0.5">Ví dụ: gọi thêm trứng chần bổ dưỡng, đĩa quẩy giòn, bánh phở thêm...</span>
                                 </div>
                                 <span className="text-[10px] font-bold text-gray-400 bg-gray-200/65 px-2.5 py-0.5 rounded-full font-body">Chọn nhiều</span>
                             </div>
@@ -250,7 +310,7 @@ const ProductDetailModal = ({
                             <span className="text-on-surface-variant/50 text-[11px] font-body font-normal">(Không bắt buộc)</span>
                         </label>
                         <textarea
-                            placeholder="Ví dụ: ít cay, nhiều đá, không lấy hành..."
+                            placeholder="Ghi chú cho nhà bếp"
                             className="w-full border border-gray-200/80 rounded-xl p-3 text-xs sm:text-sm outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/8 transition-all duration-300 h-[72px] resize-none bg-surface-container-low/50 font-body placeholder:text-on-surface-variant/40"
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
@@ -262,7 +322,7 @@ const ProductDetailModal = ({
                     </div>
                 </div>
 
-                {/* Sticky Action Footer — safe area aware */}
+                {/* Sticky Action Footer - safe area aware */}
                 <div className="bg-white border-t border-gray-100/80 px-4 pt-3 flex items-center gap-3 z-20 flex-shrink-0 shadow-[0_-4px_16px_rgba(0,0,0,0.03)]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0.75rem))' }}>
                     {/* Quantity Stepper */}
                     <div className="flex items-center gap-1.5 bg-surface-container-high/80 rounded-xl p-1">
@@ -298,5 +358,7 @@ const ProductDetailModal = ({
 };
 
 export default ProductDetailModal;
+
+
 
 

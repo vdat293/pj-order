@@ -31,6 +31,19 @@ const StaffDashboard = () => {
   const [selectedTableCode, setSelectedTableCode] = useState(null);
   const [selectedSplitItems, setSelectedSplitItems] = useState({}); // { [orderItemId]: quantity }
 
+  const isOrderToday = (order) => {
+    const orderDate = new Date(order.created_at);
+    const today = new Date();
+
+    return (
+      orderDate.getFullYear() === today.getFullYear() &&
+      orderDate.getMonth() === today.getMonth() &&
+      orderDate.getDate() === today.getDate()
+    );
+  };
+
+  const getTodayOrders = (data) => (data || []).filter(isOrderToday);
+
 
 
   // Lấy danh sách bàn kèm các món ăn chưa thanh toán gom nhóm theo từng đơn hàng cụ thể
@@ -180,10 +193,10 @@ const StaffDashboard = () => {
   const fetchPendingCount = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE_URL}/orders?status=pending`, {
+      const res = await axios.get(`${API_BASE_URL}/orders?status=pending&date=today`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setPendingCount(res.data.length);
+      setPendingCount(getTodayOrders(res.data).length);
     } catch (err) {
       console.error('Lỗi lấy số lượng đơn chờ:', err);
     }
@@ -193,10 +206,10 @@ const StaffDashboard = () => {
   const fetchUnpaidOrders = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE_URL}/orders?status=all`, {
+      const res = await axios.get(`${API_BASE_URL}/orders?status=all&date=today`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const unpaid = res.data.filter(o => o.payment_status === 'unpaid' && o.status !== 'cancelled');
+      const unpaid = getTodayOrders(res.data).filter(o => o.payment_status === 'unpaid' && o.status !== 'cancelled');
       setUnpaidOrders(unpaid);
     } catch (err) {
       console.error('Lỗi lấy danh sách đơn chưa thanh toán:', err);
@@ -207,10 +220,10 @@ const StaffDashboard = () => {
   const fetchOrders = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE_URL}/orders?status=${activeTab}`, {
+      const res = await axios.get(`${API_BASE_URL}/orders?status=${activeTab}&date=today`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setOrders(res.data);
+      setOrders(getTodayOrders(res.data));
       setError('');
       fetchPendingCount();
       fetchUnpaidOrders();
@@ -406,7 +419,7 @@ const StaffDashboard = () => {
             <Utensils className="text-white h-5 w-5" />
           </div>
           <div className="text-left">
-            <h2 className="text-sm font-extrabold tracking-wider font-heading text-white uppercase">Phở Gia Truyền</h2>
+            <h2 className="text-sm font-extrabold tracking-wider font-heading text-white">Phở Hương Phú</h2>
             <p className="text-[10px] text-gray-400 font-body">Hệ thống quản trị Host</p>
           </div>
           {/* Nút đóng sidebar di động */}
@@ -499,7 +512,7 @@ const StaffDashboard = () => {
                 <Utensils size={18} />
               </button>
               <div className="text-left">
-                <h1 className="text-lg font-extrabold tracking-tight font-heading flex items-center gap-1.5">
+                <h1 className="text-xl md:text-lg font-extrabold tracking-tight font-heading flex items-center gap-1.5">
                   Bảng điều khiển nhận đơn
                 </h1>
                 <p className="text-xs text-gray-400 font-body hidden sm:block">Cập nhật đơn hàng thực khách tức thời</p>
@@ -536,7 +549,7 @@ const StaffDashboard = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative px-4 py-2 text-xs font-heading font-extrabold rounded-2xl border transition-all duration-200 cursor-pointer ${
+              className={`relative px-4 py-2 text-sm md:text-xs font-heading font-extrabold rounded-2xl border transition-all duration-200 cursor-pointer ${
                 activeTab === tab.id
                   ? 'bg-gradient-to-r from-primary to-orange-500 text-white border-transparent shadow-lg shadow-primary/10'
                   : 'bg-slate-950 text-gray-400 border-white/5 hover:border-white/10 hover:text-white'
@@ -595,11 +608,11 @@ const StaffDashboard = () => {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
-                      <h4 className="font-heading font-extrabold text-base text-white tracking-tight flex items-center gap-1.5">
+                      <h4 className="font-heading font-extrabold text-lg md:text-base text-white tracking-tight flex items-center gap-1.5">
                         {order.table_name}
                       </h4>
                     </div>
-                    <p className="text-[10px] text-gray-400 font-body">
+                    <p className="text-xs md:text-[10px] text-gray-400 font-body">
                       Mã đơn: #{order.order_code.substring(0, 12)} • {formatTime(order.created_at)}
                     </p>
                   </div>
@@ -611,7 +624,7 @@ const StaffDashboard = () => {
                 {/* Customer note */}
                 {order.customer_note && (
                   <div className="px-5 pt-3">
-                    <div className="p-3 bg-white/5 border border-white/5 text-xs italic text-gray-300 rounded-2xl flex gap-2 font-body text-left">
+                    <div className="p-3 bg-white/5 border border-white/5 text-sm md:text-xs italic text-gray-300 rounded-2xl flex gap-2 font-body text-left">
                       <span className="text-primary font-bold font-heading not-italic">Lưu ý:</span>
                       <span>"{order.customer_note}"</span>
                     </div>
@@ -620,19 +633,19 @@ const StaffDashboard = () => {
 
                 {/* List Items */}
                 <div className="p-5 flex-1 space-y-3">
-                  <h5 className="text-[10px] font-heading font-bold text-gray-500 uppercase tracking-wider mb-2 pl-0.5">Món đã gọi</h5>
+                  <h5 className="text-xs md:text-[10px] font-heading font-bold text-gray-500 uppercase tracking-wider mb-2 pl-0.5">Món đã gọi</h5>
                   <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
                     {order.items.map(item => (
-                      <div key={item.id} className="flex justify-between items-start text-xs border-b border-white/[0.02] pb-2 last:border-0 last:pb-0">
+                      <div key={item.id} className="flex justify-between items-start text-base md:text-xs border-b border-white/[0.02] pb-2 last:border-0 last:pb-0">
                         <div className="flex-1 pr-3 text-left">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-start gap-1.5 leading-snug">
                             <span className="font-heading font-extrabold text-primary">{item.quantity}x</span>
-                            <span className="font-heading font-semibold text-gray-200">{item.product_name}</span>
+                            <span className="font-heading font-bold text-gray-100">{item.product_name}</span>
                           </div>
                           
                           {/* Hiển thị toppings đi kèm món ăn cho bếp */}
                           {item.toppings && item.toppings.length > 0 && (
-                            <div className="flex flex-col gap-0.5 mt-1 pl-3 text-[10px] font-bold font-body leading-tight">
+                            <div className="flex flex-col gap-1 mt-1.5 pl-3 text-xs md:text-[10px] font-bold font-body leading-snug">
                               {/* Ăn cùng (Trong tô) */}
                               {item.toppings.filter(t => t.type === 'cung').length > 0 && (
                                 <div className="text-emerald-400">
@@ -651,12 +664,13 @@ const StaffDashboard = () => {
                           )}
 
                           {item.note && (
-                            <p className="text-[10px] text-gray-400 italic mt-1 pl-3 border-l-2 border-primary/20 font-body">
+                            <p className="text-sm md:text-[10px] text-gray-300 italic mt-2 pl-3 border-l-2 border-primary/30 font-body leading-snug">
+                              <span className="font-bold text-primary not-italic">Ghi chú: </span>
                               {item.note}
                             </p>
                           )}
                         </div>
-                        <span className="font-heading font-bold text-gray-300 flex-shrink-0">{formatPrice(item.subtotal)}</span>
+                        <span className="font-heading font-bold text-gray-200 flex-shrink-0 text-sm md:text-xs">{formatPrice(item.subtotal)}</span>
                       </div>
                     ))}
                   </div>
@@ -665,7 +679,7 @@ const StaffDashboard = () => {
                 {/* Payment info and Total amount */}
                 <div className="px-5 py-4 border-t border-white/5 bg-white/[0.01] flex justify-between items-center gap-4">
                   <div className="space-y-1">
-                    <p className="text-[10px] text-gray-500 font-heading uppercase tracking-wider pl-0.5">Tổng cộng</p>
+                    <p className="text-xs md:text-[10px] text-gray-500 font-heading uppercase tracking-wider pl-0.5">Tổng cộng</p>
                     <p className="text-lg font-heading font-extrabold text-primary">{formatPrice(order.total_amount)}</p>
                   </div>
                   <div>
@@ -679,13 +693,13 @@ const StaffDashboard = () => {
                     <>
                       <button 
                         onClick={() => updateStatus(order.id, 'confirmed')}
-                        className="flex-1 bg-gradient-to-r from-primary to-orange-500 text-white font-heading font-bold text-xs h-[42px] rounded-2xl hover:shadow-lg hover:shadow-primary/10 active:scale-[0.97] transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer"
+                        className="flex-1 bg-gradient-to-r from-primary to-orange-500 text-white font-heading font-bold text-sm md:text-xs h-[42px] rounded-2xl hover:shadow-lg hover:shadow-primary/10 active:scale-[0.97] transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer"
                       >
                         <Check size={14}/> Duyệt nhận đơn
                       </button>
                       <button 
                         onClick={() => updateStatus(order.id, 'cancelled', 'Nhân viên từ chối đơn hàng')}
-                        className="bg-white/5 hover:bg-rose-500/10 border border-white/10 hover:border-rose-500/20 text-gray-400 hover:text-rose-400 font-heading font-bold text-xs px-4 h-[42px] rounded-2xl transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer"
+                        className="bg-white/5 hover:bg-rose-500/10 border border-white/10 hover:border-rose-500/20 text-gray-400 hover:text-rose-400 font-heading font-bold text-sm md:text-xs px-4 h-[42px] rounded-2xl transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer"
                       >
                         Hủy
                       </button>
@@ -696,13 +710,13 @@ const StaffDashboard = () => {
                     <>
                       <button 
                         onClick={() => updateStatus(order.id, 'served')}
-                        className="flex-1 bg-gradient-to-r from-primary to-orange-500 text-white font-heading font-bold text-xs h-[42px] rounded-2xl hover:shadow-lg hover:shadow-primary/10 active:scale-[0.97] transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer"
+                        className="flex-1 bg-gradient-to-r from-primary to-orange-500 text-white font-heading font-bold text-sm md:text-xs h-[42px] rounded-2xl hover:shadow-lg hover:shadow-primary/10 active:scale-[0.97] transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer"
                       >
                         <Utensils size={14}/> Đã lên món
                       </button>
                       <button 
                         onClick={() => updateStatus(order.id, 'cancelled', 'Hủy bởi bếp/nhân viên')}
-                        className="bg-white/5 hover:bg-rose-500/10 border border-white/10 hover:border-rose-500/20 text-gray-400 hover:text-rose-400 font-heading font-bold text-xs px-3 h-[42px] rounded-2xl transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer"
+                        className="bg-white/5 hover:bg-rose-500/10 border border-white/10 hover:border-rose-500/20 text-gray-400 hover:text-rose-400 font-heading font-bold text-sm md:text-xs px-3 h-[42px] rounded-2xl transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer"
                       >
                         Hủy
                       </button>
