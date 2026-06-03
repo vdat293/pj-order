@@ -1,10 +1,61 @@
 const { pool } = require('../config/database');
+const {
+    SESSION_TTL_MINUTES,
+    attachOrderToTableSession,
+    createTableSession,
+    getValidTableSession
+} = require('../services/tableSessionService');
+
+const IDEMPOTENCY_TTL_MS = 10 * 60 * 1000;
+const idempotencyCache = new Map();
+
+const cleanupIdempotencyCache = () => {
+    const now = Date.now();
+    for (const [key, value] of idempotencyCache.entries()) {
+        if (value.expiresAt <= now) {
+            idempotencyCache.delete(key);
+        }
+    }
+};
+
+const getIdempotencyKey = (req) => {
+    return req.get('Idempotency-Key') || req.body.idempotency_key;
+};
+
+const isValidIdempotencyKey = (key) => {
+    return typeof key === 'string' && /^[a-zA-Z0-9:_-]{16,128}$/.test(key);
+};
 
 // API: Lấy thông tin bàn
 exports.getTableInfo = async (req, res) => {
     try {
         const { code } = req.params;
-        const { token } = req.query; // Xác thực token
+        const { token, table_session_token } = req.query;
+
+        if (table_session_token) {
+            const tableSession = await getValidTableSession(pool, code, table_session_token);
+
+            if (!tableSession) {
+                return res.status(401).json({
+                    code: 'TABLE_SESSION_INVALID',
+                    message: 'Phiên gọi món đã hết hạn. Vui lòng quét lại mã QR.'
+                });
+            }
+
+            return res.json({
+                table: {
+                    id: tableSession.table_id,
+                    table_code: tableSession.table_code,
+                    table_name: tableSession.table_name,
+                    status: tableSession.status
+                },
+                table_session: {
+                    token: tableSession.session_token,
+                    expires_at: tableSession.expires_at,
+                    ttl_minutes: SESSION_TTL_MINUTES
+                }
+            });
+        }
 
         const [tables] = await pool.query(
             'SELECT id, table_code, table_name, status FROM dining_tables WHERE table_code = ? AND qr_token = ?',
@@ -15,7 +66,16 @@ exports.getTableInfo = async (req, res) => {
             return res.status(404).json({ message: 'Không tìm thấy bàn hoặc mã QR không hợp lệ' });
         }
 
-        res.json({ table: tables[0] });
+        const session = await createTableSession(pool, tables[0].id);
+
+        res.json({
+            table: tables[0],
+            table_session: {
+                token: session.session_token,
+                expires_at: session.expires_at,
+                ttl_minutes: SESSION_TTL_MINUTES
+            }
+        });
     } catch (error) {
         console.error('Lỗi API getTableInfo:', error);
         res.status(500).json({ message: 'Lỗi server' });
@@ -77,24 +137,54 @@ exports.getMenu = async (req, res) => {
 // API: Khách hàng Đặt món
 exports.createOrder = async (req, res) => {
     const connection = await pool.getConnection();
+    let cacheKey = null;
     try {
-        const { table_code, qr_token, customer_note, items } = req.body;
+        const { table_code, table_session_token, customer_note, items } = req.body;
+        const idempotencyKey = getIdempotencyKey(req);
 
         if (!items || items.length === 0) {
             return res.status(400).json({ message: 'Giỏ hàng trống' });
         }
 
-        // 1. Kiểm tra tính hợp lệ của bàn
-        const [tables] = await connection.query(
-            'SELECT id, table_name FROM dining_tables WHERE table_code = ? AND qr_token = ?',
-            [table_code, qr_token]
-        );
-
-        if (tables.length === 0) {
-            return res.status(404).json({ message: 'Thông tin bàn không hợp lệ' });
+        if (!table_code || !table_session_token) {
+            return res.status(400).json({ message: 'Thiếu thông tin phiên gọi món' });
         }
+
+        if (!isValidIdempotencyKey(idempotencyKey)) {
+            return res.status(400).json({ message: 'Thiếu hoặc sai Idempotency-Key' });
+        }
+
+        // 1. Kiểm tra phiên gọi món ngắn hạn của bàn
+        const tableSession = await getValidTableSession(connection, table_code, table_session_token);
+
+        if (!tableSession) {
+            return res.status(401).json({
+                code: 'TABLE_SESSION_INVALID',
+                message: 'Phiên gọi món đã hết hạn. Vui lòng quét lại mã QR.'
+            });
+        }
+
+        cleanupIdempotencyCache();
+        cacheKey = `${table_code}:${table_session_token}:${idempotencyKey}`;
+        const cached = idempotencyCache.get(cacheKey);
+
+        if (cached?.status === 'completed') {
+            return res.status(200).json(cached.response);
+        }
+
+        if (cached?.status === 'processing') {
+            return res.status(409).json({ message: 'Đơn hàng đang được xử lý. Vui lòng không gửi lại.' });
+        }
+
+        idempotencyCache.set(cacheKey, {
+            status: 'processing',
+            expiresAt: Date.now() + IDEMPOTENCY_TTL_MS
+        });
         
-        const table = tables[0];
+        const table = {
+            id: tableSession.table_id,
+            table_name: tableSession.table_name
+        };
 
         // Bắt đầu Transaction
         await connection.beginTransaction();
@@ -109,6 +199,8 @@ exports.createOrder = async (req, res) => {
             [orderCode, table.id, customer_note]
         );
         const orderId = orderResult.insertId;
+
+        await attachOrderToTableSession(connection, tableSession.id, orderId);
 
         // 3. Xử lý chi tiết các món (order_items)
         let totalAmount = 0;
@@ -209,15 +301,27 @@ exports.createOrder = async (req, res) => {
             });
         }
 
-        res.status(201).json({ 
+        const responsePayload = {
             message: 'Đặt món thành công', 
             order_code: orderCode, 
-            order_id: orderId 
+            order_id: orderId,
+            table_code
+        };
+
+        idempotencyCache.set(cacheKey, {
+            status: 'completed',
+            response: responsePayload,
+            expiresAt: Date.now() + IDEMPOTENCY_TTL_MS
         });
+
+        res.status(201).json(responsePayload);
 
     } catch (error) {
         // Hoàn tác (Rollback) mọi thay đổi nếu có lỗi (ví dụ: món bị hết)
         await connection.rollback();
+        if (cacheKey) {
+            idempotencyCache.delete(cacheKey);
+        }
         console.error('Lỗi API createOrder:', error);
         res.status(400).json({ message: error.message || 'Lỗi xử lý đơn hàng' });
     } finally {
@@ -229,6 +333,24 @@ exports.createOrder = async (req, res) => {
 exports.getOrderDetails = async (req, res) => {
     try {
         const { orderId } = req.params;
+        const { table_code, table_session_token } = req.query;
+
+        if (!table_code || !table_session_token) {
+            return res.status(400).json({ message: 'Thiếu thông tin phiên gọi món' });
+        }
+
+        const tableSession = await getValidTableSession(pool, table_code, table_session_token);
+
+        if (!tableSession) {
+            return res.status(401).json({
+                code: 'TABLE_SESSION_INVALID',
+                message: 'Phiên gọi món đã hết hạn. Vui lòng quét lại mã QR.'
+            });
+        }
+
+        if (String(tableSession.order_id) !== String(orderId)) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn hàng này' });
+        }
 
         // 1. Lấy thông tin đơn hàng chính kèm tên bàn
         const [orders] = await pool.query(
@@ -236,8 +358,8 @@ exports.getOrderDetails = async (req, res) => {
                     o.payment_status, o.payment_method, o.created_at, dt.table_name, dt.table_code
              FROM orders o
              JOIN dining_tables dt ON o.table_id = dt.id
-             WHERE o.id = ?`,
-            [orderId]
+             WHERE o.id = ? AND dt.table_code = ?`,
+            [orderId, table_code]
         );
 
         if (orders.length === 0) {

@@ -1,4 +1,8 @@
 const { pool } = require('../config/database');
+const {
+    ensureTableSessionSchema,
+    revokeSessionsForOrder
+} = require('../services/tableSessionService');
 
 // API: Lấy danh sách toàn bộ đơn hàng (sắp xếp mới nhất trước)
 exports.getOrders = async (req, res) => {
@@ -87,6 +91,8 @@ exports.updateOrderStatus = async (req, res) => {
             return res.status(400).json({ message: 'Thiếu trạng thái cập nhật' });
         }
 
+        await ensureTableSessionSchema(connection);
+
         // Bắt đầu Transaction
         await connection.beginTransaction();
 
@@ -97,6 +103,7 @@ exports.updateOrderStatus = async (req, res) => {
         );
 
         if (orders.length === 0) {
+            await connection.rollback();
             return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
         }
 
@@ -116,6 +123,10 @@ exports.updateOrderStatus = async (req, res) => {
         updateParams.push(orderId);
 
         await connection.query(updateQuery, updateParams);
+
+        if (status === 'completed') {
+            await revokeSessionsForOrder(connection, orderId);
+        }
 
         // 3. Ghi log lịch sử trạng thái
         await connection.query(
@@ -164,6 +175,7 @@ exports.updateOrderStatus = async (req, res) => {
 
 // API: Cập nhật trạng thái thanh toán thủ công
 exports.updatePaymentStatus = async (req, res) => {
+    const connection = await pool.getConnection();
     try {
         const { orderId } = req.params;
         const { payment_status, payment_method } = req.body;
@@ -172,7 +184,11 @@ exports.updatePaymentStatus = async (req, res) => {
             return res.status(400).json({ message: 'Thiếu trạng thái thanh toán' });
         }
 
-        const [result] = await pool.query(
+        await ensureTableSessionSchema(connection);
+
+        await connection.beginTransaction();
+
+        const [result] = await connection.query(
             `UPDATE orders 
              SET payment_status = ?, payment_method = ? 
              WHERE id = ?`,
@@ -180,8 +196,15 @@ exports.updatePaymentStatus = async (req, res) => {
         );
 
         if (result.affectedRows === 0) {
+            await connection.rollback();
             return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
         }
+
+        if (payment_status === 'paid') {
+            await revokeSessionsForOrder(connection, orderId);
+        }
+
+        await connection.commit();
 
         // Phát tín hiệu socket đồng bộ
         const io = req.app.get('io');
@@ -195,8 +218,11 @@ exports.updatePaymentStatus = async (req, res) => {
 
         res.json({ message: 'Cập nhật trạng thái thanh toán thành công' });
     } catch (error) {
+        await connection.rollback();
         console.error('Lỗi API updatePaymentStatus:', error);
         res.status(500).json({ message: 'Lỗi server khi cập nhật thanh toán' });
+    } finally {
+        connection.release();
     }
 };
 
@@ -589,6 +615,4 @@ exports.getRevenueOrders = async (req, res) => {
         res.status(500).json({ message: 'Lỗi máy chủ khi lấy danh sách hóa đơn doanh thu' });
     }
 };
-
-
 

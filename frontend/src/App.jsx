@@ -1,8 +1,9 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
 import CustomerOrder from './pages/CustomerOrder';
 import OrderStatus from './pages/OrderStatus';
+import RestaurantHome from './pages/RestaurantHome';
 import Login from './pages/Login';
 import StaffDashboard from './pages/StaffDashboard';
 import MenuManagement from './pages/MenuManagement';
@@ -15,8 +16,8 @@ function App() {
     <CartProvider>
       <Router>
         <Routes>
-          {/* Chuyển hướng tạm thời từ root sang 1 bàn mẫu (Sprint 1) */}
-          <Route path="/" element={<Navigate to="/order/T01?token=token_table_1_abc123" replace />} />
+          {/* Trang chủ công khai của quán */}
+          <Route path="/" element={<RestaurantHome />} />
           
           {/* Trang đặt món của Khách hàng */}
           <Route path="/order/:tableCode" element={<CustomerOrder />} />
@@ -73,4 +74,3 @@ function App() {
 }
 
 export default App;
-
