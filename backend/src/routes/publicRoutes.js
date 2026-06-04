@@ -17,6 +17,13 @@ const createOrderLimiter = createRateLimiter({
     message: 'Bạn đã gửi quá nhiều yêu cầu đặt món. Vui lòng thử lại sau.'
 });
 
+const callStaffLimiter = createRateLimiter({
+    windowMs: 60 * 1000,
+    max: 5,
+    keyPrefix: 'call-staff',
+    message: 'Bạn yêu cầu hỗ trợ quá nhanh. Vui lòng đợi 30 giây.'
+});
+
 // [GET] /api/public/tables/:code
 router.get('/tables/:code', publicReadLimiter, publicController.getTableInfo);
 
@@ -28,5 +35,8 @@ router.post('/orders', createOrderLimiter, publicController.createOrder);
 
 // [GET] /api/public/orders/:orderId
 router.get('/orders/:orderId', publicReadLimiter, publicController.getOrderDetails);
+
+// [POST] /api/public/tables/:code/call-staff
+router.post('/tables/:code/call-staff', callStaffLimiter, publicController.callStaff);
 
 module.exports = router;

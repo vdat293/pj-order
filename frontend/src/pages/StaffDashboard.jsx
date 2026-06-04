@@ -31,6 +31,8 @@ const StaffDashboard = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const socketRef = useRef(null);
+  const audioQueueRef = useRef([]);
+  const isPlayingRef = useRef(false);
 
   // Trạng thái chia tiền thanh toán món lẻ (bàn ghép)
   const [isSplitPaymentOpen, setIsSplitPaymentOpen] = useState(false);
@@ -198,6 +200,88 @@ const StaffDashboard = () => {
     }
   };
 
+  // Hàm xử lý tuần tự hàng đợi âm thanh
+  const processAudioQueue = () => {
+    if (isPlayingRef.current || audioQueueRef.current.length === 0) {
+      return;
+    }
+
+    isPlayingRef.current = true;
+    const nextAudio = audioQueueRef.current.shift();
+
+    try {
+      if (!nextAudio.tableName) {
+        playNotificationSound();
+        setTimeout(() => {
+          isPlayingRef.current = false;
+          processAudioQueue();
+        }, 1200);
+        return;
+      }
+
+      // Tách số từ tên bàn (ví dụ: "Bàn 3" -> 3)
+      const match = nextAudio.tableName.match(/\d+/);
+      const tableNum = match ? parseInt(match[0], 10) : null;
+
+      if (!tableNum || tableNum < 1 || tableNum > 11) {
+        console.warn(`Số bàn "${nextAudio.tableName}" không có file âm thanh sẵn có (chỉ hỗ trợ từ bàn 1 đến 11). Phát chuông mặc định.`);
+        playNotificationSound();
+        setTimeout(() => {
+          isPlayingRef.current = false;
+          processAudioQueue();
+        }, 1200);
+        return;
+      }
+
+      // Xác định file âm thanh tương ứng
+      const filename = nextAudio.type === 'order'
+        ? `ban_${tableNum}_goi_mon.mp3`
+        : `ban_${tableNum}_yeu_cau_ho_tro.mp3`;
+
+      const audioPath = `/audio/${filename}`;
+      const audio = new Audio(audioPath);
+
+      audio.addEventListener('ended', () => {
+        // Nghỉ 500ms giữa các thông báo cho tự nhiên
+        setTimeout(() => {
+          isPlayingRef.current = false;
+          processAudioQueue();
+        }, 500);
+      });
+
+      audio.addEventListener('error', (err) => {
+        console.warn(`Lỗi load file âm thanh: ${audioPath}`, err);
+        playNotificationSound();
+        setTimeout(() => {
+          isPlayingRef.current = false;
+          processAudioQueue();
+        }, 1200);
+      });
+
+      audio.play().catch(err => {
+        console.warn(`Trình duyệt chặn tự động phát âm thanh hoặc không tải được file: ${audioPath}`, err);
+        playNotificationSound();
+        setTimeout(() => {
+          isPlayingRef.current = false;
+          processAudioQueue();
+        }, 1200);
+      });
+    } catch (e) {
+      console.error('Lỗi khi xử lý queue âm thanh:', e);
+      playNotificationSound();
+      setTimeout(() => {
+        isPlayingRef.current = false;
+        processAudioQueue();
+      }, 1200);
+    }
+  };
+
+  // Hàm phát thông báo giọng nói động dựa trên tên bàn và loại thông báo (được đẩy vào hàng đợi)
+  const playVoiceNotification = (tableName, type) => {
+    audioQueueRef.current.push({ tableName, type });
+    processAudioQueue();
+  };
+
   // Lấy số lượng đơn hàng chờ nhận
   const fetchPendingCount = async () => {
     try {
@@ -331,8 +415,8 @@ const StaffDashboard = () => {
     socket.on('order:new', (newOrderInfo) => {
       console.log('🛎️ Đơn hàng mới:', newOrderInfo);
 
-      // Kích hoạt chuông thông báo
-      playNotificationSound();
+      // Kích hoạt giọng nói thông báo gọi món
+      playVoiceNotification(newOrderInfo.table_name, 'order');
 
       // Hiện Toast popup
       setToast({
@@ -343,6 +427,21 @@ const StaffDashboard = () => {
 
       // Tự động load lại danh sách đơn hàng
       fetchOrders();
+    });
+
+    // Lắng nghe yêu cầu gọi nhân viên hỗ trợ
+    socket.on('staff:call', (data) => {
+      console.log('🛎️ Yêu cầu hỗ trợ từ:', data);
+
+      // Kích hoạt giọng nói yêu cầu hỗ trợ
+      playVoiceNotification(data.table_name, 'support');
+
+      // Hiện Toast popup
+      setToast({
+        show: true,
+        message: `Bàn "${data.table_name}" yêu cầu hỗ trợ!`,
+        orderCode: `support-${Date.now()}`
+      });
     });
 
     // Lắng nghe các thay đổi đồng bộ khác
@@ -413,7 +512,11 @@ const StaffDashboard = () => {
           </div>
           <div className="flex-1 text-left">
             <p className="font-heading font-bold text-sm text-white">{toast.message}</p>
-            <p className="text-xs text-gray-400 font-body mt-0.5">Mã đơn: #{toast.orderCode.substring(0, 12)}</p>
+            {toast.orderCode && !toast.orderCode.startsWith('support-') ? (
+              <p className="text-xs text-gray-400 font-body mt-0.5">Mã đơn: #{toast.orderCode.substring(0, 12)}</p>
+            ) : (
+              <p className="text-xs text-amber-500 font-heading font-bold mt-0.5 animate-pulse">Yêu cầu hỗ trợ khẩn cấp</p>
+            )}
           </div>
           <button onClick={() => setToast({ show: false, message: '', orderCode: '' })} className="text-gray-500 hover:text-white transition-colors cursor-pointer">
             <X size={16} />

@@ -403,3 +403,39 @@ exports.getOrderDetails = async (req, res) => {
         res.status(500).json({ message: 'Lỗi máy chủ khi truy vấn đơn hàng' });
     }
 };
+
+// API: Khách hàng gọi nhân viên
+exports.callStaff = async (req, res) => {
+    try {
+        const { code } = req.params;
+        const { table_session_token } = req.body;
+
+        if (!table_session_token) {
+            return res.status(400).json({ message: 'Thiếu thông tin phiên gọi món' });
+        }
+
+        // Kiểm tra phiên làm việc của bàn
+        const tableSession = await getValidTableSession(pool, code, table_session_token);
+
+        if (!tableSession) {
+            return res.status(401).json({
+                code: 'TABLE_SESSION_INVALID',
+                message: 'Phiên gọi món đã hết hạn. Vui lòng quét lại mã QR.'
+            });
+        }
+
+        // Gửi sự kiện realtime cho Staff Dashboard
+        const io = req.app.get('io');
+        if (io) {
+            io.to('staff').emit('staff:call', {
+                table_code: code,
+                table_name: tableSession.table_name
+            });
+        }
+
+        res.json({ message: 'Đã gửi yêu cầu hỗ trợ thành công' });
+    } catch (error) {
+        console.error('Lỗi API callStaff:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ khi gửi yêu cầu gọi nhân viên' });
+    }
+};

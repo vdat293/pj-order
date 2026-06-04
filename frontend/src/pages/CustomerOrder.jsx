@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ShoppingBag, Search, ChefHat, ArrowRight, X } from 'lucide-react';
+import { ShoppingBag, Search, ChefHat, ArrowRight, X, Bell } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import ProductCard from '../components/ProductCard';
 import CartModal from '../components/CartModal';
@@ -63,6 +63,16 @@ const CustomerOrder = () => {
 
     // Header scroll state
     const [isScrolled, setIsScrolled] = useState(false);
+
+    // Cooldown cho nút gọi nhân viên
+    const [callStaffCooldown, setCallStaffCooldown] = useState(0);
+
+    useEffect(() => {
+        if (callStaffCooldown > 0) {
+            const timer = setTimeout(() => setCallStaffCooldown(prev => prev - 1), 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [callStaffCooldown]);
 
     const { totalItems, totalPrice, cart, clearCart, updateCartItem } = useCart();
 
@@ -276,6 +286,28 @@ const CustomerOrder = () => {
         }
     };
 
+    const handleCallStaff = async () => {
+        if (callStaffCooldown > 0) return;
+        const confirm = window.confirm("Bạn muốn yêu cầu nhân viên hỗ trợ tại bàn?");
+        if (!confirm) return;
+
+        try {
+            await axios.post(`${API_BASE_URL}/tables/${tableCode}/call-staff`, {
+                table_session_token: tableSessionToken
+            });
+            setCallStaffCooldown(30);
+            alert("Đã gửi yêu cầu hỗ trợ! Nhân viên sẽ đến ngay.");
+        } catch (error) {
+            console.error("Lỗi khi gọi nhân viên:", error);
+            if (error.response?.data?.code === 'TABLE_SESSION_INVALID' || error.response?.status === 401) {
+                sessionStorage.removeItem(getTableSessionStorageKey(tableCode));
+                navigate('/', { replace: true });
+                return;
+            }
+            alert(error.response?.data?.message || "Không thể gửi yêu cầu hỗ trợ. Vui lòng thử lại sau.");
+        }
+    };
+
     const handleEditItem = (index) => {
         const item = cart[index];
         // Tìm sản phẩm gốc trong menu để truyền cho ProductDetailModal.
@@ -432,13 +464,30 @@ const CustomerOrder = () => {
                         </div>
                     </div>
 
-                    {/* Bàn hiển thị */}
-                    <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-100/50 rounded-full px-3.5 py-2 shadow-sm">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        <span className="text-xs font-heading font-bold text-emerald-700 tracking-wide">{tableInfo.table_name}</span>
+                    {/* Bàn hiển thị & Gọi nhân viên */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                            onClick={handleCallStaff}
+                            disabled={callStaffCooldown > 0}
+                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full border transition-all duration-200 active:scale-95 cursor-pointer ${
+                                callStaffCooldown > 0
+                                    ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                                    : 'bg-amber-50/85 hover:bg-amber-100/80 border-amber-200 text-amber-700 hover:text-amber-800'
+                            }`}
+                        >
+                            <Bell size={13} className={callStaffCooldown > 0 ? '' : 'animate-bounce-subtle'} />
+                            <span className="text-[11px] font-heading font-extrabold">
+                                {callStaffCooldown > 0 ? `${callStaffCooldown}s` : 'Gọi NV'}
+                            </span>
+                        </button>
+
+                        <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-100/50 rounded-full px-3 py-1.5 shadow-sm">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            <span className="text-xs font-heading font-bold text-emerald-700 tracking-wide">{tableInfo.table_name}</span>
+                        </div>
                     </div>
                 </div>
 
