@@ -2,22 +2,26 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { 
-  Utensils, Layers, Package, TrendingUp, LogOut, ArrowLeft, X, 
-  Calendar, Clock, Filter, ShoppingBag, Search, ChevronDown, ChevronUp, 
-  Eye, RotateCcw, Award, CheckCircle, HelpCircle, LayoutGrid, ListFilter,
-  Sunrise, Sun, CloudSun, Moon, Stars, Hash, MapPin, Timer, XCircle, RefreshCw
+  Utensils, Layers, Package, TrendingUp, LogOut, X, 
+  Clock, Filter, ShoppingBag, Search, ChevronDown, ChevronUp, 
+  Eye, CheckCircle, LayoutGrid, ListFilter,
+  Sunrise, Moon, MapPin, Timer, XCircle, RefreshCw
 } from 'lucide-react';
+import { SERVICE_SHIFT_OPTIONS, createServiceShiftStats, getServiceShift } from '../utils/serviceShift';
 
 const API_BASE_URL = `http://${window.location.hostname}:5001/api/staff`;
 
 const OrderHistory = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [user, setUser] = useState(null);
+  const [user] = useState(() => {
+    const storedUser = localStorage.getItem('user');
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
   
-  // Trạng thái bộ lọc thời gian & bàn & khung giờ
+  // Trạng thái bộ lọc thời gian & bàn & ca phục vụ
   const [timeFilter, setTimeFilter] = useState('today');
-  const [hourFilter, setHourFilter] = useState('all');
+  const [shiftFilter, setShiftFilter] = useState('all');
   const [selectedTable, setSelectedTable] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,13 +64,15 @@ const OrderHistory = () => {
   };
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
+    if (!user) {
       navigate('/login');
     }
-  }, [navigate]);
+  }, [navigate, user]);
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/login');
+  };
 
   const fetchOrderHistory = async () => {
     setLoading(true);
@@ -93,11 +99,6 @@ const OrderHistory = () => {
   useEffect(() => {
     fetchOrderHistory();
   }, []);
-
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/login');
-  };
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
@@ -129,16 +130,6 @@ const OrderHistory = () => {
     );
   };
 
-  // Xác định khung giờ của đơn hàng
-  const getHourFrame = (dateString) => {
-    const hour = new Date(dateString).getHours();
-    if (hour >= 6 && hour < 10) return 'morning';
-    if (hour >= 10 && hour < 14) return 'noon';
-    if (hour >= 14 && hour < 18) return 'afternoon';
-    if (hour >= 18 && hour < 22) return 'evening';
-    return 'night';
-  };
-
   // Lọc dữ liệu phía Client
   const getFilteredOrders = () => {
     return orders.filter(order => {
@@ -150,7 +141,7 @@ const OrderHistory = () => {
       }
       if (statusFilter !== 'all' && order.status !== statusFilter) return false;
       if (selectedTable !== 'all' && order.table_name !== selectedTable) return false;
-      if (hourFilter !== 'all' && getHourFrame(order.created_at) !== hourFilter) return false;
+      if (shiftFilter !== 'all' && getServiceShift(order.created_at) !== shiftFilter) return false;
 
       const orderDate = new Date(order.created_at);
       const today = new Date();
@@ -171,17 +162,17 @@ const OrderHistory = () => {
 
   const filteredOrders = getFilteredOrders();
 
-  // Thống kê theo khung giờ
-  const getHourFrameStats = () => {
-    const stats = { morning: 0, noon: 0, afternoon: 0, evening: 0, night: 0 };
+  // Thống kê theo ca phục vụ: ca ngày có thể kéo dài đến trước 17h, ca tối có thể kéo qua 22h.
+  const getServiceShiftStats = () => {
+    const stats = createServiceShiftStats();
     filteredOrders.forEach(o => {
-      const frame = getHourFrame(o.created_at);
-      stats[frame] = (stats[frame] || 0) + 1;
+      const shift = getServiceShift(o.created_at);
+      if (shift) stats[shift] = (stats[shift] || 0) + 1;
     });
     return stats;
   };
 
-  const hourStats = getHourFrameStats();
+  const serviceShiftStats = getServiceShiftStats();
 
   // KPI data
   const totalOrders = filteredOrders.length;
@@ -440,18 +431,16 @@ const OrderHistory = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Timer size={10} /> Khung giờ</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Timer size={10} /> Ca phục vụ</label>
                 <select
-                  value={hourFilter}
-                  onChange={(e) => setHourFilter(e.target.value)}
+                  value={shiftFilter}
+                  onChange={(e) => setShiftFilter(e.target.value)}
                   className="w-full bg-slate-950/60 border border-white/[0.06] rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-primary/40 cursor-pointer transition-colors"
                 >
-                  <option value="all">Tất cả</option>
-                  <option value="morning">🌅 Sáng (06-10h)</option>
-                  <option value="noon">☀️ Trưa (10-14h)</option>
-                  <option value="afternoon">🌤️ Chiều (14-18h)</option>
-                  <option value="evening">🌙 Tối (18-22h)</option>
-                  <option value="night">🌃 Đêm (22-06h)</option>
+                  <option value="all">Tất cả ca</option>
+                  {SERVICE_SHIFT_OPTIONS.map(shift => (
+                    <option key={shift.id} value={shift.id}>{shift.filterLabel}</option>
+                  ))}
                 </select>
               </div>
 
@@ -487,32 +476,33 @@ const OrderHistory = () => {
             </div>
           </div>
 
-          {/* ============ HOUR FRAME CHART - Vertical Bar Chart ============ */}
+          {/* ============ SERVICE SHIFT CHART - Vertical Bar Chart ============ */}
           <div className="bg-slate-900/60 border border-white/[0.06] rounded-2xl p-6 text-left backdrop-blur-sm">
             <div className="flex items-center gap-2.5 mb-5">
               <div className="w-7 h-7 bg-violet-500/10 text-violet-400 rounded-lg flex items-center justify-center">
                 <Clock size={14} />
               </div>
               <h3 className="text-xs font-heading font-extrabold text-white uppercase tracking-wider">
-                Phân bố đơn theo khung giờ
+                Phân bố đơn theo ca phục vụ
               </h3>
             </div>
             
-            <div className="grid grid-cols-5 gap-3">
-              {[
-                { id: 'morning', label: 'Sáng', time: '6h-10h', count: hourStats.morning, gradient: 'from-amber-400 to-orange-500', bg: 'bg-amber-500/10', icon: <Sunrise size={16} className="text-amber-400" /> },
-                { id: 'noon', label: 'Trưa', time: '10h-14h', count: hourStats.noon, gradient: 'from-emerald-400 to-teal-500', bg: 'bg-emerald-500/10', icon: <Sun size={16} className="text-emerald-400" /> },
-                { id: 'afternoon', label: 'Chiều', time: '14h-18h', count: hourStats.afternoon, gradient: 'from-sky-400 to-blue-500', bg: 'bg-sky-500/10', icon: <CloudSun size={16} className="text-sky-400" /> },
-                { id: 'evening', label: 'Tối', time: '18h-22h', count: hourStats.evening, gradient: 'from-primary to-orange-500', bg: 'bg-primary/10', icon: <Moon size={16} className="text-primary" /> },
-                { id: 'night', label: 'Đêm', time: '22h-6h', count: hourStats.night, gradient: 'from-rose-400 to-pink-500', bg: 'bg-rose-500/10', icon: <Stars size={16} className="text-rose-400" /> }
-              ].map((slot, idx) => {
-                const maxCount = Math.max(...Object.values(hourStats), 1);
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {SERVICE_SHIFT_OPTIONS.map((shift, idx) => {
+                const slot = {
+                  ...shift,
+                  count: serviceShiftStats[shift.id],
+                  gradient: shift.id === 'day' ? 'from-amber-400 to-orange-500' : 'from-primary to-orange-500',
+                  bg: shift.id === 'day' ? 'bg-amber-500/10' : 'bg-primary/10',
+                  icon: shift.id === 'day' ? <Sunrise size={16} className="text-amber-400" /> : <Moon size={16} className="text-primary" />,
+                };
+                const maxCount = Math.max(...Object.values(serviceShiftStats), 1);
                 const heightPct = (slot.count / maxCount) * 100;
-                const isActive = hourFilter === slot.id;
+                const isActive = shiftFilter === slot.id;
                 return (
                   <button
                     key={slot.id}
-                    onClick={() => setHourFilter(hourFilter === slot.id ? 'all' : slot.id)}
+                    onClick={() => setShiftFilter(shiftFilter === slot.id ? 'all' : slot.id)}
                     className={`relative group rounded-2xl p-4 flex flex-col items-center justify-end min-h-[160px] border transition-all duration-300 cursor-pointer ${
                       isActive 
                         ? 'bg-slate-800/80 border-white/10 shadow-lg scale-[1.02]' 
@@ -583,7 +573,7 @@ const OrderHistory = () => {
                       <th className="py-3.5 px-4 text-[10px]">Mã đơn</th>
                       <th className="py-3.5 px-4 text-[10px]">Bàn gọi</th>
                       <th className="py-3.5 px-4 text-[10px]">Thời gian</th>
-                      <th className="py-3.5 px-4 text-[10px]">Khung giờ</th>
+                      <th className="py-3.5 px-4 text-[10px]">Ca phục vụ</th>
                       <th className="py-3.5 px-4 text-[10px]">Trạng thái</th>
                       <th className="py-3.5 px-4 text-[10px] text-right">Tổng tiền</th>
                       <th className="py-3.5 px-4 text-[10px] text-center">Chi tiết</th>
@@ -591,14 +581,12 @@ const OrderHistory = () => {
                   </thead>
                   <tbody className="divide-y divide-white/[0.02]">
                     {filteredOrders.map(order => {
-                      const hourFrame = getHourFrame(order.created_at);
-                      const frameConfig = {
-                        morning: { label: 'Sáng', color: 'text-amber-400', bg: 'bg-amber-500/10' },
-                        noon: { label: 'Trưa', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-                        afternoon: { label: 'Chiều', color: 'text-sky-400', bg: 'bg-sky-500/10' },
-                        evening: { label: 'Tối', color: 'text-primary', bg: 'bg-primary/10' },
-                        night: { label: 'Đêm', color: 'text-rose-400', bg: 'bg-rose-500/10' }
-                      }[hourFrame];
+                      const serviceShift = getServiceShift(order.created_at);
+                      const shiftOption = SERVICE_SHIFT_OPTIONS.find(shift => shift.id === serviceShift);
+                      const shiftConfig = {
+                        day: { color: 'text-amber-400', bg: 'bg-amber-500/10' },
+                        evening: { color: 'text-primary', bg: 'bg-primary/10' },
+                      }[serviceShift] || { color: 'text-slate-400', bg: 'bg-white/[0.04]' };
 
                       return (
                         <React.Fragment key={order.id}>
@@ -613,8 +601,8 @@ const OrderHistory = () => {
                               {formatDateTime(order.created_at)}
                             </td>
                             <td className="py-4 px-4">
-                              <span className={`${frameConfig.bg} ${frameConfig.color} px-2.5 py-1 rounded-lg text-[10px] font-bold inline-block`}>
-                                {frameConfig.label}
+                              <span className={`${shiftConfig.bg} ${shiftConfig.color} px-2.5 py-1 rounded-lg text-[10px] font-bold inline-block`}>
+                                {shiftOption?.label || 'Không rõ'}
                               </span>
                             </td>
                             <td className="py-4 px-4">

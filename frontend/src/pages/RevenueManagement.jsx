@@ -1,19 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { 
-  Utensils, Layers, Package, TrendingUp, LogOut, ArrowLeft, X, 
-  Calendar, CreditCard, DollarSign, ShoppingBag, Search, ChevronDown, ChevronUp, 
-  Download, Eye, RotateCcw, Award, Clock, Wallet, BarChart3, PieChart, MapPin,
-  Sunrise, Sun, CloudSun, Moon, Stars, XCircle, RefreshCw, FileSpreadsheet, ArrowUpRight
+  Utensils, Layers, Package, TrendingUp, LogOut, X, 
+  Calendar, CreditCard, DollarSign, ShoppingBag, Search, 
+  Award, Clock, Wallet, BarChart3, PieChart, MapPin,
+  Sunrise, Moon, XCircle, FileSpreadsheet, ArrowUpRight
 } from 'lucide-react';
+import { SERVICE_SHIFT_OPTIONS, createServiceShiftStats, getServiceShift } from '../utils/serviceShift';
 
 const API_BASE_URL = `http://${window.location.hostname}:5001/api/staff`;
 
 const RevenueManagement = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [user, setUser] = useState(null);
+  const [user] = useState(() => {
+    const storedUser = localStorage.getItem('user');
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
   
   // Trạng thái bộ lọc thời gian
   const [filterType, setFilterType] = useState('today');
@@ -27,21 +31,20 @@ const RevenueManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Trạng thái hiển thị chi tiết hóa đơn (expand/collapse row)
-  const [expandedOrderId, setExpandedOrderId] = useState(null);
-
   // Sidebar di động thu gọn
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Lấy thông tin user đăng nhập
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
+    if (!user) {
       navigate('/login');
     }
-  }, [navigate]);
+  }, [navigate, user]);
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/login');
+  };
 
   // Hàm tải dữ liệu thống kê và danh sách hóa đơn từ server
   const fetchRevenueData = async () => {
@@ -96,11 +99,6 @@ const RevenueManagement = () => {
     axios.get(`${API_BASE_URL}/revenue/orders${queryStr}&search=`, {
       headers: { Authorization: `Bearer ${token}` }
     }).then(res => setOrders(res.data));
-  };
-
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/login');
   };
 
   const formatPrice = (price) => {
@@ -166,31 +164,17 @@ const RevenueManagement = () => {
     document.body.removeChild(link);
   };
 
-  const toggleOrderDetails = (orderId) => {
-    setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
-  };
-
-  // Xác định khung giờ của đơn hàng
-  const getHourFrame = (dateString) => {
-    const hour = new Date(dateString).getHours();
-    if (hour >= 6 && hour < 10) return 'morning';
-    if (hour >= 10 && hour < 14) return 'noon';
-    if (hour >= 14 && hour < 18) return 'afternoon';
-    if (hour >= 18 && hour < 22) return 'evening';
-    return 'night';
-  };
-
-  // Thống kê theo khung giờ
-  const getHourFrameStats = () => {
-    const stats = { morning: 0, noon: 0, afternoon: 0, evening: 0, night: 0 };
+  // Thống kê theo ca phục vụ: ca ngày có thể kéo dài đến trước 17h, ca tối có thể kéo qua 22h.
+  const getServiceShiftStats = () => {
+    const stats = createServiceShiftStats();
     orders.forEach(o => {
-      const frame = getHourFrame(o.created_at);
-      stats[frame] = (stats[frame] || 0) + 1;
+      const shift = getServiceShift(o.created_at);
+      if (shift) stats[shift] = (stats[shift] || 0) + 1;
     });
     return stats;
   };
 
-  const hourStats = getHourFrameStats();
+  const serviceShiftStats = getServiceShiftStats();
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex">
@@ -505,7 +489,7 @@ const RevenueManagement = () => {
                     <div className="space-y-4">
                       {/* Bar chart */}
                       <div className="w-full h-52 sm:h-60 relative flex items-end justify-between px-1 pt-6">
-                        {stats.dailyTrend.map((d, index) => {
+                        {stats.dailyTrend.map((d) => {
                           const maxRevenue = Math.max(...stats.dailyTrend.map(x => x.total_revenue), 1);
                           const heightPct = (d.total_revenue / maxRevenue) * 85;
                           
@@ -623,25 +607,26 @@ const RevenueManagement = () => {
                 </div>
               </div>
 
-              {/* ============ HOUR FRAME CHART ============ */}
+              {/* ============ SERVICE SHIFT CHART ============ */}
               <div className="bg-slate-900/60 border border-white/[0.06] rounded-2xl p-6 text-left backdrop-blur-sm">
                 <div className="flex items-center gap-2.5 mb-5">
                   <div className="w-7 h-7 bg-sky-500/10 text-sky-400 rounded-lg flex items-center justify-center">
                     <Clock size={14} />
                   </div>
                   <h3 className="text-xs font-heading font-extrabold text-white uppercase tracking-wider">
-                    Phân bố doanh thu theo khung giờ
+                    Phân bố đơn theo ca phục vụ
                   </h3>
                 </div>
-                <div className="grid grid-cols-5 gap-3">
-                  {[
-                    { id: 'morning', label: 'Sáng', time: '6h-10h', count: hourStats.morning, gradient: 'from-amber-400 to-orange-500', bg: 'bg-amber-500/10', icon: <Sunrise size={16} className="text-amber-400" /> },
-                    { id: 'noon', label: 'Trưa', time: '10h-14h', count: hourStats.noon, gradient: 'from-emerald-400 to-teal-500', bg: 'bg-emerald-500/10', icon: <Sun size={16} className="text-emerald-400" /> },
-                    { id: 'afternoon', label: 'Chiều', time: '14h-18h', count: hourStats.afternoon, gradient: 'from-sky-400 to-blue-500', bg: 'bg-sky-500/10', icon: <CloudSun size={16} className="text-sky-400" /> },
-                    { id: 'evening', label: 'Tối', time: '18h-22h', count: hourStats.evening, gradient: 'from-primary to-orange-500', bg: 'bg-primary/10', icon: <Moon size={16} className="text-primary" /> },
-                    { id: 'night', label: 'Đêm', time: '22h-6h', count: hourStats.night, gradient: 'from-rose-400 to-pink-500', bg: 'bg-rose-500/10', icon: <Stars size={16} className="text-rose-400" /> }
-                  ].map((slot, idx) => {
-                    const maxCount = Math.max(...Object.values(hourStats), 1);
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {SERVICE_SHIFT_OPTIONS.map((shift, idx) => {
+                    const slot = {
+                      ...shift,
+                      count: serviceShiftStats[shift.id],
+                      gradient: shift.id === 'day' ? 'from-amber-400 to-orange-500' : 'from-primary to-orange-500',
+                      bg: shift.id === 'day' ? 'bg-amber-500/10' : 'bg-primary/10',
+                      icon: shift.id === 'day' ? <Sunrise size={16} className="text-amber-400" /> : <Moon size={16} className="text-primary" />,
+                    };
+                    const maxCount = Math.max(...Object.values(serviceShiftStats), 1);
                     const heightPct = (slot.count / maxCount) * 100;
                     return (
                       <div key={slot.id} className="relative group rounded-2xl p-4 flex flex-col items-center justify-end min-h-[160px] bg-slate-950/30 border border-white/[0.04] hover:border-white/[0.08] hover:bg-slate-950/50 transition-all duration-300" style={{ animationDelay: `${idx * 80}ms` }}>
@@ -751,16 +736,16 @@ const RevenueManagement = () => {
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    {/* Peak hour */}
+                    {/* Peak shift */}
                     {(() => {
-                      const peakEntry = Object.entries(hourStats).reduce((a, b) => a[1] >= b[1] ? a : b, ['none', 0]);
-                      const peakLabels = { morning: '🌅 Sáng', noon: '☀️ Trưa', afternoon: '🌤️ Chiều', evening: '🌙 Tối', night: '🌃 Đêm' };
+                      const peakEntry = Object.entries(serviceShiftStats).reduce((a, b) => a[1] >= b[1] ? a : b, ['none', 0]);
+                      const peakLabels = { day: '🌅 Ca ngày', evening: '🌙 Ca tối' };
                       return (
                         <div className="p-4 rounded-2xl bg-slate-950/40 border border-white/[0.04] text-center">
                           <div className="w-10 h-10 bg-amber-500/10 text-amber-400 rounded-xl flex items-center justify-center mx-auto mb-2">
                             <Clock size={18} />
                           </div>
-                          <p className="text-[10px] text-gray-500 font-heading font-bold uppercase tracking-wider">Khung giờ cao điểm</p>
+                          <p className="text-[10px] text-gray-500 font-heading font-bold uppercase tracking-wider">Ca cao điểm</p>
                           <p className="text-sm font-heading font-extrabold text-white mt-1">{peakLabels[peakEntry[0]] || 'N/A'}</p>
                           <p className="text-[10px] text-gray-500 mt-0.5">{peakEntry[1]} đơn</p>
                         </div>
@@ -804,7 +789,6 @@ const RevenueManagement = () => {
 
                     {/* Total orders count */}
                     {(() => {
-                      const totalRevenue = stats?.overview?.total_revenue || 0;
                       const totalOrders = stats?.overview?.total_orders || 0;
                       return (
                         <div className="p-4 rounded-2xl bg-slate-950/40 border border-white/[0.04] text-center">

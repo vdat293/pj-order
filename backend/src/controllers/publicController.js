@@ -180,7 +180,7 @@ exports.createOrder = async (req, res) => {
             status: 'processing',
             expiresAt: Date.now() + IDEMPOTENCY_TTL_MS
         });
-        
+
         const table = {
             id: tableSession.table_id,
             table_name: tableSession.table_name
@@ -192,7 +192,7 @@ exports.createOrder = async (req, res) => {
         // 2. Tạo đơn hàng mới (orders)
         // Cấu trúc mã đơn ngẫu nhiên ví dụ: OD + timestamp + tableId
         const orderCode = `OD${Date.now()}${table.id}`;
-        
+
         const [orderResult] = await connection.query(
             `INSERT INTO orders (order_code, table_id, customer_note, status, total_amount) 
              VALUES (?, ?, ?, 'pending', 0)`,
@@ -302,8 +302,8 @@ exports.createOrder = async (req, res) => {
         }
 
         const responsePayload = {
-            message: 'Đặt món thành công', 
-            order_code: orderCode, 
+            message: 'Đặt món thành công',
+            order_code: orderCode,
             order_id: orderId,
             table_code
         };

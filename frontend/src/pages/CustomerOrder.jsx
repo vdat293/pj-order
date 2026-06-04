@@ -36,17 +36,17 @@ const CustomerOrder = () => {
     const [tableInfo, setTableInfo] = useState(null);
     const [menu, setMenu] = useState([]);
     const [loading, setLoading] = useState(true);
-    
+
     // Search
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchFocused, setIsSearchFocused] = useState(false);
-    
+
     // Modals & Sheets
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
+
     // Category scroll states
     const [activeCategory, setActiveCategory] = useState(null);
     const categoryTabsRef = useRef(null);
@@ -60,7 +60,7 @@ const CustomerOrder = () => {
 
     // Animation state for floating cart
     const [cartAnimate, setCartAnimate] = useState(false);
-    
+
     // Header scroll state
     const [isScrolled, setIsScrolled] = useState(false);
 
@@ -107,7 +107,7 @@ const CustomerOrder = () => {
                 // Lấy menu
                 const menuRes = await axios.get(`${API_BASE_URL}/menu`);
                 setMenu(menuRes.data);
-                
+
                 // Active danh mục đầu tiên
                 if (menuRes.data.length > 0) {
                     setActiveCategory(menuRes.data[0].id);
@@ -171,10 +171,10 @@ const CustomerOrder = () => {
                 if (element) {
                     const top = element.offsetTop;
                     const height = element.offsetHeight;
-                    
+
                     if (scrollPosition >= top && scrollPosition < top + height) {
                         setActiveCategory(category.id);
-                        
+
                         // Tự động cuộn thanh ngang category tabs để hiện tab đang active.
                         const tabElement = document.getElementById(`tab-${category.id}`);
                         if (tabElement && categoryTabsRef.current) {
@@ -182,7 +182,7 @@ const CustomerOrder = () => {
                             const containerWidth = container.offsetWidth;
                             const tabLeft = tabElement.offsetLeft;
                             const tabWidth = tabElement.offsetWidth;
-                            
+
                             container.scrollTo({
                                 left: tabLeft - (containerWidth / 2) + (tabWidth / 2),
                                 behavior: 'smooth'
@@ -233,7 +233,7 @@ const CustomerOrder = () => {
         if (cart.length === 0 || isSubmitting) return;
         setIsSubmitting(true);
         checkoutIdempotencyKeyRef.current = checkoutIdempotencyKeyRef.current || createIdempotencyKey();
-        
+
         try {
             const payload = {
                 table_code: tableCode,
@@ -258,7 +258,7 @@ const CustomerOrder = () => {
             });
             clearCart();
             setIsCartOpen(false);
-            
+
             // Chuyển hướng sang trang trạng thái
             sessionStorage.setItem(`order_table:${response.data.order_id}`, tableCode);
             navigate(`/status/${response.data.order_id}?table_code=${encodeURIComponent(tableCode)}`);
@@ -284,7 +284,7 @@ const CustomerOrder = () => {
             baseProduct = cat.products.find(p => p.id === item.product_id);
             if (baseProduct) break;
         }
-        
+
         if (baseProduct) {
             setEditingCartItemIndex(index);
             setEditingCartItem(item);
@@ -413,12 +413,11 @@ const CustomerOrder = () => {
     return (
         <div className="bg-surface min-h-screen pb-32">
             {/* Sticky Header & Tabs Container */}
-            <div className={`sticky top-0 z-40 transition-[background-color,box-shadow,backdrop-filter] duration-200 ease-out will-change-[background-color,box-shadow] border-b border-gray-100/50 ${
-                isScrolled 
-                    ? 'header-scrolled' 
+            <div className={`sticky top-0 z-40 transition-[background-color,box-shadow,backdrop-filter] duration-200 ease-out will-change-[background-color,box-shadow] border-b border-gray-100/50 ${isScrolled
+                    ? 'header-scrolled'
                     : 'bg-white/95 backdrop-blur-md'
-            }`}>
-                
+                }`}>
+
                 {/* Header chính */}
                 <div className="px-5 py-3 flex justify-between items-center max-w-lg mx-auto">
                     <div className="flex items-center gap-2.5">
@@ -432,7 +431,7 @@ const CustomerOrder = () => {
                             <p className="text-[10px] text-on-surface-variant/50 font-heading font-semibold tracking-wider">Phở ngon không thể cưỡng lại</p>
                         </div>
                     </div>
-                    
+
                     {/* Bàn hiển thị */}
                     <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-100/50 rounded-full px-3.5 py-2 shadow-sm">
                         <span className="relative flex h-2 w-2">
@@ -454,11 +453,10 @@ const CustomerOrder = () => {
                             onFocus={() => setIsSearchFocused(true)}
                             onBlur={() => setIsSearchFocused(false)}
                             placeholder="Tìm món ăn..."
-                            className={`w-full h-11 pl-11 pr-10 bg-surface-container-low/80 border rounded-2xl text-sm font-body search-input transition-all duration-300 placeholder:text-on-surface-variant/40 ${
-                                isSearchFocused 
-                                    ? 'border-primary/25 bg-white shadow-sm' 
+                            className={`w-full h-11 pl-11 pr-10 bg-surface-container-low/80 border rounded-2xl text-sm font-body search-input transition-all duration-300 placeholder:text-on-surface-variant/40 ${isSearchFocused
+                                    ? 'border-primary/25 bg-white shadow-sm'
                                     : 'border-gray-100/80'
-                            }`}
+                                }`}
                         />
                         {searchQuery && (
                             <button
@@ -473,7 +471,7 @@ const CustomerOrder = () => {
 
                 {/* Categories Horizontal Tabs */}
                 {!searchQuery && (
-                    <div 
+                    <div
                         ref={categoryTabsRef}
                         className="flex overflow-x-auto no-scrollbar gap-2 px-5 pb-3 pt-0.5 max-w-lg mx-auto scroll-smooth"
                     >
@@ -483,11 +481,10 @@ const CustomerOrder = () => {
                                     key={category.id}
                                     id={`tab-${category.id}`}
                                     onClick={() => scrollToCategory(category.id)}
-                                    className={`px-4 py-2.5 rounded-2xl text-xs font-heading font-bold whitespace-nowrap transition-[background,color,border-color,box-shadow] duration-200 border ${
-                                        activeCategory === category.id
+                                    className={`px-4 py-2.5 rounded-2xl text-xs font-heading font-bold whitespace-nowrap transition-[background,color,border-color,box-shadow] duration-200 border ${activeCategory === category.id
                                             ? 'bg-gradient-to-r from-primary to-orange-500 text-white border-transparent shadow-md shadow-primary/15'
                                             : 'bg-white text-on-surface-variant/60 border-gray-100/80 hover:bg-surface-container-low hover:border-gray-200/80'
-                                    }`}
+                                        }`}
                                 >
                                     <span className="mr-1.5">
                                         {categoryEmojis[category.name] || '🍽️'}
@@ -502,7 +499,7 @@ const CustomerOrder = () => {
 
             {/* Menu List & Best Sellers */}
             <div className="p-4 max-w-lg mx-auto space-y-7">
-                
+
                 {/* Search Results Info */}
                 {searchQuery && (
                     <div className="flex items-center gap-2 py-2">
@@ -520,14 +517,14 @@ const CustomerOrder = () => {
                             <span className="w-1.5 h-4 rounded-full bg-gradient-to-b from-primary to-orange-500"></span>
                             <span>Gợi ý món chạy nhất</span>
                         </h3>
-                        
+
                         <div className="flex overflow-x-auto gap-3.5 no-scrollbar pb-3 pt-0.5 -mx-4 px-4 scroll-smooth">
                             {bestSellers.map((product, idx) => {
                                 const cartItems = cart.filter(item => item.product_id === product.id);
                                 const qty = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
                                 return (
-                                    <div 
+                                    <div
                                         key={`featured-${product.id}`}
                                         onClick={() => handleProductSelect(product)}
                                         className={`w-44 flex-shrink-0 bg-white rounded-3xl p-3 border border-gray-100/80 shadow-soft flex flex-col relative transition-all duration-300 active:scale-[0.97] hover:shadow-soft-lg cursor-pointer group animate-float-up animate-float-up-${idx + 1}`}
@@ -539,8 +536,8 @@ const CustomerOrder = () => {
 
                                         {/* Food Image */}
                                         <div className="w-full h-28 rounded-2xl overflow-hidden mb-3 border border-gray-50 bg-surface-container-low">
-                                            <img 
-                                                src={product.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300'} 
+                                            <img
+                                                src={product.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300'}
                                                 alt={product.name}
                                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                                 loading="lazy"
@@ -574,8 +571,8 @@ const CustomerOrder = () => {
                 {/* 2. MAIN CATEGORIES VERTICAL LIST */}
                 {filteredMenu.map((category, catIdx) => (
                     category.products.length > 0 && (
-                        <div 
-                            key={category.id} 
+                        <div
+                            key={category.id}
                             id={`category-${category.id}`}
                             className="pt-2"
                         >
@@ -589,13 +586,13 @@ const CustomerOrder = () => {
                                     {category.products.length} món
                                 </span>
                             </div>
-                            
+
                             {/* Grid món ăn */}
                             <div className="space-y-3">
                                 {category.products.map(product => (
-                                    <ProductCard 
-                                        key={product.id} 
-                                        product={product} 
+                                    <ProductCard
+                                        key={product.id}
+                                        product={product}
                                         onSelect={handleProductSelect}
                                     />
                                 ))}
@@ -618,13 +615,12 @@ const CustomerOrder = () => {
 
             {/* Floating Glassmorphic Cart Bar */}
             {totalItems > 0 && (
-                <div 
-                    className={`fixed left-1/2 transform -translate-x-1/2 w-[92%] max-w-md z-30 transition-transform duration-300 ${
-                        cartAnimate ? 'scale-[1.02]' : ''
-                    }`}
+                <div
+                    className={`fixed left-1/2 transform -translate-x-1/2 w-[92%] max-w-md z-30 transition-transform duration-300 ${cartAnimate ? 'scale-[1.02]' : ''
+                        }`}
                     style={{ bottom: 'max(1.25rem, env(safe-area-inset-bottom, 1.25rem))' }}
                 >
-                    <button 
+                    <button
                         onClick={() => setIsCartOpen(true)}
                         className="w-full glass-panel-dark text-white shadow-2xl shadow-black/20 rounded-2xl p-3.5 flex justify-between items-center active:scale-[0.97] transition-all duration-200"
                     >
@@ -640,7 +636,7 @@ const CustomerOrder = () => {
                                 <p className="text-sm font-heading font-extrabold text-white">{formatPrice(totalPrice)}</p>
                             </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-1.5 bg-gradient-to-r from-primary to-orange-500 text-white py-2 px-3.5 rounded-xl font-heading font-bold text-xs shadow-md shadow-primary/10">
                             <span>Xem giỏ</span>
                             <ArrowRight size={14} className="stroke-[3]" />
@@ -650,7 +646,7 @@ const CustomerOrder = () => {
             )}
 
             {/* Food Detail Bottom Sheet */}
-            <ProductDetailModal 
+            <ProductDetailModal
                 isOpen={isDetailOpen}
                 onClose={() => {
                     setIsDetailOpen(false);
@@ -668,9 +664,9 @@ const CustomerOrder = () => {
             />
 
             {/* Cart Bottom Sheet */}
-            <CartModal 
-                isOpen={isCartOpen} 
-                onClose={() => setIsCartOpen(false)} 
+            <CartModal
+                isOpen={isCartOpen}
+                onClose={() => setIsCartOpen(false)}
                 onCheckout={handleCheckout}
                 onEditItem={handleEditItem}
                 isSubmitting={isSubmitting}

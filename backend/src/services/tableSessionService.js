@@ -47,7 +47,10 @@ const ensureTableSessionSchema = async (db) => {
              FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL`
         );
     } catch (error) {
-        if (error.code !== 'ER_DUP_KEYNAME' && error.errno !== 1826) {
+        const isDuplicateKey = error.code === 'ER_DUP_KEYNAME' || 
+                              error.errno === 1826 || 
+                              (error.code === 'ER_CANT_CREATE_TABLE' && error.sqlMessage?.includes('121'));
+        if (!isDuplicateKey) {
             throw error;
         }
     }
