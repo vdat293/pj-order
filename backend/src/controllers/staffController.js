@@ -4,6 +4,8 @@ const {
     revokeSessionsForOrder
 } = require('../services/tableSessionService');
 
+const canCollectPayment = (status) => status === 'served' || status === 'completed';
+
 // API: Lấy danh sách toàn bộ đơn hàng (sắp xếp mới nhất trước)
 exports.getOrders = async (req, res) => {
     try {
@@ -110,6 +112,13 @@ exports.updateOrderStatus = async (req, res) => {
         const currentOrder = orders[0];
         const oldStatus = currentOrder.status;
 
+        if (status === 'completed' && !canCollectPayment(oldStatus)) {
+            await connection.rollback();
+            return res.status(400).json({
+                message: 'Chỉ được thanh toán đơn đã lên món/phục vụ.'
+            });
+        }
+
         // 2. Cập nhật trạng thái trong bảng orders
         // Nếu chuyển sang trạng thái completed thì tự động đánh dấu payment_status = 'paid' và completed_at = NOW()
         let updateQuery = 'UPDATE orders SET status = ?';
@@ -187,6 +196,25 @@ exports.updatePaymentStatus = async (req, res) => {
         await ensureTableSessionSchema(connection);
 
         await connection.beginTransaction();
+
+        const [orders] = await connection.query(
+            'SELECT status FROM orders WHERE id = ?',
+            [orderId]
+        );
+
+        if (orders.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+        }
+
+        const currentOrder = orders[0];
+
+        if (payment_status === 'paid' && !canCollectPayment(currentOrder.status)) {
+            await connection.rollback();
+            return res.status(400).json({
+                message: 'Chỉ được thanh toán đơn đã lên món/phục vụ.'
+            });
+        }
 
         const [result] = await connection.query(
             `UPDATE orders 

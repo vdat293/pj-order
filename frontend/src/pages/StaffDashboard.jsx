@@ -54,6 +54,10 @@ const StaffDashboard = () => {
 
   const getTodayOrders = (data) => (data || []).filter(isOrderToday);
 
+  const isOrderReadyForPayment = (order) => {
+    return order?.status === 'served' && order?.payment_status === 'unpaid';
+  };
+
 
 
   // Lấy danh sách bàn kèm các món ăn chưa thanh toán gom nhóm theo từng đơn hàng cụ thể
@@ -61,6 +65,8 @@ const StaffDashboard = () => {
     const tables = {};
 
     unpaidOrders.forEach(order => {
+      if (!isOrderReadyForPayment(order)) return;
+
       const code = order.table_code;
       if (!tables[code]) {
         tables[code] = {
@@ -302,7 +308,7 @@ const StaffDashboard = () => {
       const res = await axios.get(`${API_BASE_URL}/orders?status=all&date=today`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const unpaid = getTodayOrders(res.data).filter(o => o.payment_status === 'unpaid' && o.status !== 'cancelled');
+      const unpaid = getTodayOrders(res.data).filter(isOrderReadyForPayment);
       setUnpaidOrders(unpaid);
     } catch (err) {
       console.error('Lỗi lấy danh sách đơn chưa thanh toán:', err);
@@ -364,7 +370,7 @@ const StaffDashboard = () => {
       }));
     } catch (err) {
       console.error('Lỗi cập nhật trạng thái:', err);
-      alert('Không thể cập nhật trạng thái đơn hàng. Vui lòng thử lại.');
+      alert(err.response?.data?.message || 'Không thể cập nhật trạng thái đơn hàng. Vui lòng thử lại.');
     }
   };
 
@@ -391,7 +397,7 @@ const StaffDashboard = () => {
       }));
     } catch (err) {
       console.error('Lỗi cập nhật thanh toán:', err);
-      alert('Không thể cập nhật thanh toán. Vui lòng thử lại.');
+      alert(err.response?.data?.message || 'Không thể cập nhật thanh toán. Vui lòng thử lại.');
     }
   };
 
@@ -495,10 +501,15 @@ const StaffDashboard = () => {
     }
   };
 
-  const getPaymentBadge = (status) => {
-    if (status === 'paid') {
+  const getPaymentBadge = (order) => {
+    if (order.payment_status === 'paid') {
       return <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-heading font-bold px-2 py-0.5 rounded-lg flex items-center gap-1"><CreditCard size={10} />Đã thanh toán</span>;
     }
+
+    if (order.status !== 'served') {
+      return <span className="bg-slate-500/10 text-slate-400 border border-slate-500/20 text-[10px] font-heading font-bold px-2 py-0.5 rounded-lg flex items-center gap-1"><Utensils size={10} />Chưa phục vụ</span>;
+    }
+
     return <span className="bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] font-heading font-bold px-2 py-0.5 rounded-lg flex items-center gap-1"><Clock size={10} />Chưa thanh toán</span>;
   };
 
@@ -794,7 +805,7 @@ const StaffDashboard = () => {
                       <p className="text-lg font-heading font-extrabold text-primary">{formatPrice(order.total_amount)}</p>
                     </div>
                     <div>
-                      {getPaymentBadge(order.payment_status)}
+                      {getPaymentBadge(order)}
                     </div>
                   </div>
 
@@ -834,7 +845,7 @@ const StaffDashboard = () => {
                       </>
                     )}
 
-                    {order.payment_status === 'unpaid' && order.status !== 'cancelled' && (
+                    {isOrderReadyForPayment(order) && (
                       <button
                         disabled={(Number(order.total_amount) || 0) <= 0}
                         onClick={() => setQrOrder(order)}
@@ -988,11 +999,11 @@ const StaffDashboard = () => {
 
               {/* Column 1: Dining Tables List */}
               <div className="w-full md:w-[280px] flex-shrink-0 flex flex-col gap-2 md:gap-4 min-h-0">
-                <h4 className="text-xs md:text-sm font-heading font-extrabold text-gray-500 uppercase tracking-wider pl-1 flex-shrink-0">Danh sách bàn hoạt động</h4>
+                <h4 className="text-xs md:text-sm font-heading font-extrabold text-gray-500 uppercase tracking-wider pl-1 flex-shrink-0">Bàn chờ thanh toán</h4>
                 <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto gap-2 pb-2 md:pb-0 pr-1 no-scrollbar flex-shrink-0 md:flex-1">
                   {Object.keys(getTablesWithUnpaid()).length === 0 ? (
                     <div className="text-center py-4 md:py-10 text-gray-500 font-body text-xs md:text-sm w-full">
-                      Không có bàn hoạt động.
+                      Chưa có bàn đã lên món chờ thanh toán.
                     </div>
                   ) : (
                     Object.values(getTablesWithUnpaid()).map(table => (
@@ -1162,8 +1173,8 @@ const StaffDashboard = () => {
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center text-center py-10 text-gray-500">
                     <CreditCard size={40} className="mb-3 opacity-30 animate-pulse" />
-                    <p className="text-sm font-heading font-bold">Hãy chọn một bàn hoạt động ở cột bên trái</p>
-                    <p className="text-xs font-body mt-1">Hệ thống sẽ tổng hợp danh sách các món chưa thanh toán.</p>
+                    <p className="text-sm font-heading font-bold">Hãy chọn một bàn chờ thanh toán ở cột bên trái</p>
+                    <p className="text-xs font-body mt-1">Hệ thống chỉ tổng hợp các món đã lên món và chưa thanh toán.</p>
                   </div>
                 )}
               </div>
