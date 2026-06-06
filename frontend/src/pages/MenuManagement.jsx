@@ -5,8 +5,7 @@ import {
   Utensils, Plus, Trash2, Edit2, Check, X, ToggleLeft, ToggleRight, 
   Layers, Package, Coffee, ChevronRight, LogOut, ArrowLeft, Image, Tag, DollarSign, ListFilter, PlusCircle, TrendingUp, CreditCard, Clock
 } from 'lucide-react';
-
-const API_BASE_URL = `http://${window.location.hostname}:5001/api/staff`;
+import { publicApiUrl, staffApiUrl } from '../config/api';
 
 const MenuManagement = () => {
   const navigate = useNavigate();
@@ -76,8 +75,7 @@ const MenuManagement = () => {
     const token = localStorage.getItem('token');
     try {
       // 1. Tải danh mục công khai
-      const publicUrl = API_BASE_URL.replace('/staff', '/public');
-      const catRes = await axios.get(`${publicUrl}/menu`);
+      const catRes = await axios.get(publicApiUrl('/menu'));
       setCategories(catRes.data.map(cat => ({ id: cat.id, name: cat.name })));
       
       // Mặc định chọn danh mục đầu tiên cho form nếu chưa chọn
@@ -87,13 +85,13 @@ const MenuManagement = () => {
       }
 
       // 2. Tải món chính
-      const prodRes = await axios.get(`${API_BASE_URL}/products`, {
+      const prodRes = await axios.get(staffApiUrl('/products'), {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProducts(prodRes.data);
 
       // 3. Tải toppings
-      const topRes = await axios.get(`${API_BASE_URL}/toppings`, {
+      const topRes = await axios.get(staffApiUrl('/toppings'), {
         headers: { Authorization: `Bearer ${token}` }
       });
       setToppings(topRes.data);
@@ -163,12 +161,12 @@ const MenuManagement = () => {
     try {
       if (editingProduct) {
         // Cập nhật
-        await axios.put(`${API_BASE_URL}/products/${editingProduct.id}`, payload, {
+        await axios.put(staffApiUrl(`/products/${editingProduct.id}`), payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
       } else {
         // Tạo mới
-        await axios.post(`${API_BASE_URL}/products`, payload, {
+        await axios.post(staffApiUrl('/products'), payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
@@ -184,7 +182,7 @@ const MenuManagement = () => {
     if (!window.confirm(`Bạn có chắc chắn muốn xoá món chính "${name}" không?`)) return;
     const token = localStorage.getItem('token');
     try {
-      await axios.delete(`${API_BASE_URL}/products/${id}`, {
+      await axios.delete(staffApiUrl(`/products/${id}`), {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchData();
@@ -197,7 +195,7 @@ const MenuManagement = () => {
   const handleToggleProductAvailable = async (product) => {
     const token = localStorage.getItem('token');
     try {
-      await axios.put(`${API_BASE_URL}/products/${product.id}`, {
+      await axios.put(staffApiUrl(`/products/${product.id}`), {
         name: product.name,
         price: product.price,
         category_id: product.category_id,
@@ -255,14 +253,14 @@ const MenuManagement = () => {
 
     try {
       if (editingTopping) {
-        await axios.put(`${API_BASE_URL}/toppings/${editingTopping.id}`, {
+        await axios.put(staffApiUrl(`/toppings/${editingTopping.id}`), {
           ...payload,
           is_available: editingTopping.is_available
         }, {
           headers: { Authorization: `Bearer ${token}` }
         });
       } else {
-        await axios.post(`${API_BASE_URL}/toppings`, payload, {
+        await axios.post(staffApiUrl('/toppings'), payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
@@ -278,7 +276,7 @@ const MenuManagement = () => {
     if (!window.confirm(`Bạn có chắc chắn muốn xoá món ăn kèm "${name}" không?`)) return;
     const token = localStorage.getItem('token');
     try {
-      await axios.delete(`${API_BASE_URL}/toppings/${id}`, {
+      await axios.delete(staffApiUrl(`/toppings/${id}`), {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchData();
@@ -291,7 +289,7 @@ const MenuManagement = () => {
   const handleToggleToppingAvailable = async (topping) => {
     const token = localStorage.getItem('token');
     try {
-      await axios.put(`${API_BASE_URL}/toppings/${topping.id}`, {
+      await axios.put(staffApiUrl(`/toppings/${topping.id}`), {
         name: topping.name,
         price: topping.price,
         category_id: topping.category_id,

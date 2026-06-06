@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ClipboardCheck, ThumbsUp, ChefHat, CheckCircle, ArrowLeft, Receipt, PhoneCall, Timer, Sparkles } from 'lucide-react';
-
-const API_BASE_URL = `http://${window.location.hostname}:5001/api/public`;
+import { publicApiUrl } from '../config/api';
 
 const getTableSessionStorageKey = (tableCode) => `table_session:${tableCode}`;
 
@@ -58,7 +57,7 @@ const OrderStatus = () => {
 
     const fetchOrderDetails = async () => {
         try {
-            const res = await axios.get(`${API_BASE_URL}/orders/${orderId}`, {
+            const res = await axios.get(publicApiUrl(`/orders/${orderId}`), {
                 params: {
                     table_code: tableCodeParam,
                     table_session_token: tableSessionToken

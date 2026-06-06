@@ -6,9 +6,8 @@ import {
   Bell, LogOut, Check, Utensils, Award, X, CheckCircle, Clock,
   AlertCircle, ShoppingBag, CreditCard, RotateCcw, Layers, Package, TrendingUp
 } from 'lucide-react';
+import { staffApiUrl, socketUrl } from '../config/api';
 
-const API_BASE_URL = `http://${window.location.hostname}:5001/api/staff`;
-const SOCKET_URL = `http://${window.location.hostname}:5001`;
 const VIETQR_BASE_URL = 'https://img.vietqr.io/image/MB-4293686868-compact.png';
 
 const buildVietQrUrl = (amount) => {
@@ -292,7 +291,7 @@ const StaffDashboard = () => {
   const fetchPendingCount = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE_URL}/orders?status=pending&date=today`, {
+      const res = await axios.get(staffApiUrl('/orders?status=pending&date=today'), {
         headers: { Authorization: `Bearer ${token}` }
       });
       setPendingCount(getTodayOrders(res.data).length);
@@ -305,7 +304,7 @@ const StaffDashboard = () => {
   const fetchUnpaidOrders = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE_URL}/orders?status=all&date=today`, {
+      const res = await axios.get(staffApiUrl('/orders?status=all&date=today'), {
         headers: { Authorization: `Bearer ${token}` }
       });
       const unpaid = getTodayOrders(res.data).filter(isOrderReadyForPayment);
@@ -319,7 +318,7 @@ const StaffDashboard = () => {
   const fetchOrders = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE_URL}/orders?status=${activeTab}&date=today`, {
+      const res = await axios.get(staffApiUrl(`/orders?status=${activeTab}&date=today`), {
         headers: { Authorization: `Bearer ${token}` }
       });
       setOrders(getTodayOrders(res.data));
@@ -349,7 +348,7 @@ const StaffDashboard = () => {
   const updateStatus = async (orderId, newStatus, note = '') => {
     try {
       const token = localStorage.getItem('token');
-      await axios.patch(`${API_BASE_URL}/orders/${orderId}/status`, {
+      await axios.patch(staffApiUrl(`/orders/${orderId}/status`), {
         status: newStatus,
         note: note || `Nhân viên chuyển trạng thái sang ${newStatus}`
       }, {
@@ -378,7 +377,7 @@ const StaffDashboard = () => {
   const updatePayment = async (orderId, paymentStatus, paymentMethod = 'cash') => {
     try {
       const token = localStorage.getItem('token');
-      await axios.patch(`${API_BASE_URL}/orders/${orderId}/payment`, {
+      await axios.patch(staffApiUrl(`/orders/${orderId}/payment`), {
         payment_status: paymentStatus,
         payment_method: paymentMethod
       }, {
@@ -409,7 +408,7 @@ const StaffDashboard = () => {
     }
 
     // Kết nối Socket.io
-    const socket = io(SOCKET_URL);
+    const socket = io(socketUrl);
     socketRef.current = socket;
 
     socket.on('connect', () => {

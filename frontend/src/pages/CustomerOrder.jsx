@@ -6,8 +6,7 @@ import { useCart } from '../context/CartContext';
 import ProductCard from '../components/ProductCard';
 import CartModal from '../components/CartModal';
 import ProductDetailModal from '../components/ProductDetailModal';
-
-const API_BASE_URL = `http://${window.location.hostname}:5001/api/public`;
+import { publicApiUrl } from '../config/api';
 
 const createIdempotencyKey = () => {
     if (window.crypto?.randomUUID) {
@@ -94,7 +93,7 @@ const CustomerOrder = () => {
                     throw new Error('Thiếu phiên QR');
                 }
 
-                const tableRes = await axios.get(`${API_BASE_URL}/tables/${tableCode}`, {
+                const tableRes = await axios.get(publicApiUrl(`/tables/${tableCode}`), {
                     params: queryToken
                         ? { token: queryToken }
                         : { table_session_token: tableSessionToken }
@@ -115,7 +114,7 @@ const CustomerOrder = () => {
                 window.history.replaceState({}, '', cleanUrl);
 
                 // Lấy menu
-                const menuRes = await axios.get(`${API_BASE_URL}/menu`);
+                const menuRes = await axios.get(publicApiUrl('/menu'));
                 setMenu(menuRes.data);
 
                 // Active danh mục đầu tiên
@@ -261,7 +260,7 @@ const CustomerOrder = () => {
                 }))
             };
 
-            const response = await axios.post(`${API_BASE_URL}/orders`, payload, {
+            const response = await axios.post(publicApiUrl('/orders'), payload, {
                 headers: {
                     'Idempotency-Key': checkoutIdempotencyKeyRef.current
                 }
@@ -292,7 +291,7 @@ const CustomerOrder = () => {
         if (!confirm) return;
 
         try {
-            await axios.post(`${API_BASE_URL}/tables/${tableCode}/call-staff`, {
+            await axios.post(publicApiUrl(`/tables/${tableCode}/call-staff`), {
                 table_session_token: tableSessionToken
             });
             setCallStaffCooldown(30);

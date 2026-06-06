@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { LogIn, Key, Mail, ShieldAlert, Sparkles, ChefHat } from 'lucide-react';
-
-const API_AUTH_URL = `http://${window.location.hostname}:5001/api/auth`;
+import { authApiUrl } from '../config/api';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -18,7 +17,7 @@ const Login = () => {
         setError('');
 
         try {
-            const res = await axios.post(`${API_AUTH_URL}/login`, { email, password });
+            const res = await axios.post(authApiUrl('/login'), { email, password });
             const { token, user } = res.data;
 
             // Lưu vào localStorage

@@ -8,8 +8,7 @@ import {
   Sunrise, Moon, MapPin, Timer, XCircle, RefreshCw
 } from 'lucide-react';
 import { SERVICE_SHIFT_OPTIONS, createServiceShiftStats, getServiceShift } from '../utils/serviceShift';
-
-const API_BASE_URL = `http://${window.location.hostname}:5001/api/staff`;
+import { staffApiUrl } from '../config/api';
 
 const OrderHistory = () => {
   const navigate = useNavigate();
@@ -80,7 +79,7 @@ const OrderHistory = () => {
     const token = localStorage.getItem('token');
     
     try {
-      const res = await axios.get(`${API_BASE_URL}/orders?status=all`, {
+      const res = await axios.get(staffApiUrl('/orders?status=all'), {
         headers: { Authorization: `Bearer ${token}` }
       });
       setOrders(res.data);

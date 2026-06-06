@@ -8,8 +8,7 @@ import {
   Sunrise, Moon, XCircle, FileSpreadsheet, ArrowUpRight
 } from 'lucide-react';
 import { SERVICE_SHIFT_OPTIONS, createServiceShiftStats, getServiceShift } from '../utils/serviceShift';
-
-const API_BASE_URL = `http://${window.location.hostname}:5001/api/staff`;
+import { staffApiUrl } from '../config/api';
 
 const RevenueManagement = () => {
   const navigate = useNavigate();
@@ -58,12 +57,12 @@ const RevenueManagement = () => {
         queryStr += `&startDate=${startDate}&endDate=${endDate}`;
       }
       
-      const statsRes = await axios.get(`${API_BASE_URL}/revenue/stats${queryStr}`, {
+      const statsRes = await axios.get(staffApiUrl(`/revenue/stats${queryStr}`), {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStats(statsRes.data);
 
-      const ordersRes = await axios.get(`${API_BASE_URL}/revenue/orders${queryStr}&search=${searchQuery}`, {
+      const ordersRes = await axios.get(staffApiUrl(`/revenue/orders${queryStr}&search=${searchQuery}`), {
         headers: { Authorization: `Bearer ${token}` }
       });
       setOrders(ordersRes.data);
@@ -96,7 +95,7 @@ const RevenueManagement = () => {
     if (filterType === 'custom' && startDate && endDate) {
       queryStr += `&startDate=${startDate}&endDate=${endDate}`;
     }
-    axios.get(`${API_BASE_URL}/revenue/orders${queryStr}&search=`, {
+    axios.get(staffApiUrl(`/revenue/orders${queryStr}&search=`), {
       headers: { Authorization: `Bearer ${token}` }
     }).then(res => setOrders(res.data));
   };
