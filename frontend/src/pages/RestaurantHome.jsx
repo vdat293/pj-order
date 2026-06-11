@@ -15,6 +15,10 @@ import {
   Utensils,
   X,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Volume2,
+  VolumeX,
   Star,
   Sparkles,
   MessageCircle
@@ -40,6 +44,11 @@ const restaurant = {
     import.meta.env.VITE_RESTAURANT_MAP_EMBED_URL ||
     'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d7833.321304983537!2d106.66432217570507!3d10.98896635523606!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3174d1005738666d%3A0x3a991deaa62fb0e2!2zUGjhu58gSMawxqFuZyBQaMO6ICggUGjhu58sIELDum4gQsOyLCBDxqFtIEfDoCwgTOG6qXUgQsOyICkgMTQgUGjhuqFtIFRo4buLIFTDom4!5e0!3m2!1svi!2s!4v1780752353605!5m2!1svi!2s',
   orderPath: import.meta.env.VITE_DEFAULT_ORDER_PATH || ''
+};
+
+const brandAssets = {
+  logo: import.meta.env.VITE_RESTAURANT_LOGO_URL || '/logo.png',
+  thumbnail: import.meta.env.VITE_RESTAURANT_THUMBNAIL_URL || '/thumb.jpg'
 };
 
 const phoneDigits = restaurant.phone.replace(/\D/g, '');
@@ -171,6 +180,215 @@ const SkeletonCard = () => (
   </div>
 );
 
+/* ─── Video Carousel using local clean video files ─── */
+const TIKTOK_VIDEOS = [
+  {
+    id: '7630766666330279189',
+    src: '/video1.mp4',
+    tiktokUrl: 'https://www.tiktok.com/@0902.814.814/video/7630766666330279189',
+    title: 'Mừng khai trương tặng chén trứng chần'
+  },
+  {
+    id: '7646684697493310727',
+    src: '/video2.mp4',
+    tiktokUrl: 'https://www.tiktok.com/@0902.814.814/video/7646684697493310727',
+    title: 'Ăn bún bò không mập đâu'
+  }
+];
+
+const TikTokCarousel = ({ backgroundPhoto }) => {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Default to muted for seamless autoplay
+  const [isInViewport, setIsInViewport] = useState(false);
+  const videoRef = useRef(null);
+  const containerRef = useRef(null);
+
+  const activeVideo = TIKTOK_VIDEOS[activeIndex];
+
+  const handleNext = useCallback(() => {
+    setActiveIndex((prev) => (prev + 1) % TIKTOK_VIDEOS.length);
+    setProgress(0);
+  }, []);
+
+  const handlePrev = useCallback(() => {
+    setActiveIndex((prev) => (prev - 1 + TIKTOK_VIDEOS.length) % TIKTOK_VIDEOS.length);
+    setProgress(0);
+  }, []);
+
+  // IntersectionObserver to only play when video is in viewport
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInViewport(entry.isIntersecting);
+      },
+      { threshold: 0.15 } // Activate when 15% of the player is in viewport
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Sync volume state and play state when active video changes
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.load();
+    if (isInViewport && !isPaused) {
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((error) => {
+          console.log("Autoplay prevented:", error.message);
+        });
+      }
+    }
+  }, [activeIndex, isInViewport]);
+
+  // Handle play/pause based on hover, touch, and viewport intersection
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (isInViewport && !isPaused) {
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  }, [isPaused, isInViewport]);
+
+  // Handle progress bar update
+  const handleTimeUpdate = (e) => {
+    const video = e.target;
+    if (video.duration) {
+      const currentProgress = (video.currentTime / video.duration) * 100;
+      setProgress(currentProgress);
+    }
+  };
+
+  // Toggle mute state
+  const toggleMute = (e) => {
+    e.stopPropagation(); // Prevent clicking video from opening link
+    setIsMuted(!isMuted);
+  };
+
+  // Open TikTok link on video click
+  const handleVideoClick = () => {
+    window.open(activeVideo.tiktokUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative flex flex-col items-center justify-center overflow-hidden rounded-2xl bg-[#0f0f0f] shadow-soft-lg transition-all duration-300 w-full max-w-[360px] mx-auto aspect-[9/16] border border-white/5 group"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={() => setIsPaused(true)}
+      onTouchEnd={() => setIsPaused(false)}
+    >
+      {/* Blurred background image for visual richness */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center filter blur-xl opacity-30 scale-110 pointer-events-none transition-all duration-500"
+        style={{ backgroundImage: `url(${backgroundPhoto})` }}
+      />
+      
+      {/* Dark overlay gradients */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40 pointer-events-none z-10" />
+
+      {/* Progress Bars (Story style) */}
+      <div className="absolute top-3 left-3 right-3 flex gap-1.5 z-30">
+        {TIKTOK_VIDEOS.map((video, idx) => (
+          <div key={video.id} className="h-1 flex-1 bg-white/20 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-red-500 via-amber-500 to-yellow-400 transition-all duration-100 ease-out"
+              style={{
+                width: idx === activeIndex ? `${progress}%` : idx < activeIndex ? '100%' : '0%'
+              }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Clean Local HTML5 Video Player */}
+      <div className="relative w-full h-full flex items-center justify-center z-20 overflow-hidden">
+        <video
+          ref={videoRef}
+          src={activeVideo.src}
+          className="w-full h-full object-cover select-none cursor-pointer"
+          muted={isMuted}
+          playsInline
+          autoPlay
+          onTimeUpdate={handleTimeUpdate}
+          onEnded={handleNext}
+          onClick={handleVideoClick}
+        />
+        
+        {/* Centered pause indicator overlay */}
+        {isPaused && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 pointer-events-none transition-all z-20 gap-2">
+            <div className="p-3.5 rounded-full bg-black/60 text-white border border-white/10 animate-fade-in shadow-lg">
+              <span className="text-xs font-bold uppercase tracking-widest px-1">Tạm dừng</span>
+            </div>
+            <span className="text-[10px] text-white/80 font-medium bg-black/40 px-2.5 py-1 rounded-full border border-white/5 animate-fade-in">
+              Click để xem trên TikTok ↗
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Manual Navigation Controls - visible when active/hovered */}
+      <div className={`absolute left-2 right-2 flex justify-between items-center z-30 pointer-events-none transition-opacity duration-300 ${isPaused ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'}`}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handlePrev();
+          }}
+          className="p-1.5 rounded-full bg-black/40 text-white border border-white/10 hover:bg-black/60 active:scale-90 pointer-events-auto transition-all shadow-lg"
+          aria-label="Video trước"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleNext();
+          }}
+          className="p-1.5 rounded-full bg-black/40 text-white border border-white/10 hover:bg-black/60 active:scale-90 pointer-events-auto transition-all shadow-lg"
+          aria-label="Video tiếp theo"
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
+
+      {/* Floating Sound Control - bottom right */}
+      <button
+        onClick={toggleMute}
+        className="absolute bottom-3 right-3 p-2 rounded-full bg-black/50 text-white border border-white/10 hover:bg-black/70 active:scale-90 z-30 transition-all shadow-lg"
+        aria-label={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
+      >
+        {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+      </button>
+
+      {/* Video title/overlay at bottom left */}
+      <div className="absolute bottom-3 left-3 right-12 z-30 pointer-events-none text-left">
+        <span className="inline-block bg-[#8f000d]/90 text-white text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mb-1">
+          Review Quán
+        </span>
+        <p className="text-xs font-semibold text-white drop-shadow-md truncate">
+          {activeVideo.title}
+        </p>
+        <p className="text-[10px] text-white/70 drop-shadow-sm mt-0.5">
+          @0902.814.814 • Phở Hương Phú
+        </p>
+      </div>
+    </div>
+  );
+};
+
 /* ════════════════════════════════════════════════
    MAIN COMPONENT — Landing page giới thiệu quán
    ════════════════════════════════════════════════ */
@@ -241,7 +459,7 @@ const RestaurantHome = () => {
       .slice(0, 2);
   }, [availableProducts]);
 
-  const heroPhoto = featuredProducts.find((product) => product.image_url)?.image_url || heroImage;
+  const heroPhoto = brandAssets.thumbnail;
   const infoPhoto = availableProducts.find((product) => product.image_url && product.image_url !== heroPhoto)?.image_url || heroPhoto;
 
   const drinkProducts = useMemo(() => {
@@ -299,10 +517,14 @@ const RestaurantHome = () => {
         <div className="mx-auto flex h-12 max-w-[1200px] items-center justify-between gap-3 px-4 sm:h-14 sm:px-6">
           {/* Brand */}
           <a className="flex items-center gap-2" href="#top">
-            <div className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-300 sm:h-10 sm:w-10 ${
-              scrolled ? 'bg-gradient-to-br from-[#8f000d] to-[#c41e2a]' : 'bg-white/20 backdrop-blur-sm'
+            <div className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white transition-all duration-300 sm:h-10 sm:w-10 ${
+              scrolled ? 'shadow-soft ring-1 ring-[#8f000d]/10' : 'shadow-lg ring-1 ring-white/35'
             }`}>
-              <Utensils size={18} className="text-white sm:h-5 sm:w-5" />
+              <img
+                alt={`${restaurant.name} logo`}
+                className="h-full w-full object-cover"
+                src={brandAssets.logo}
+              />
             </div>
             <span className={`text-lg font-heading font-bold transition-colors duration-300 sm:text-xl ${
               scrolled ? 'text-[#8f000d]' : 'text-white'
@@ -373,7 +595,10 @@ const RestaurantHome = () => {
       >
         {/* Close button */}
         <div className="flex h-14 items-center justify-between px-5">
-          <span className="font-heading text-lg font-bold text-[#8f000d]">{restaurant.name}</span>
+          <span className="flex items-center gap-2 font-heading text-lg font-bold text-[#8f000d]">
+            <img alt="" className="h-8 w-8 rounded-lg object-cover" src={brandAssets.logo} />
+            {restaurant.name}
+          </span>
           <button
             className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
             onClick={closeMobileMenu}
@@ -447,6 +672,14 @@ const RestaurantHome = () => {
 
           {/* Hero content — mobile-first sizing */}
           <div className="relative z-10 w-full max-w-3xl px-5 text-center text-white sm:px-6">
+            <div className="mx-auto mb-5 h-24 w-24 overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-white/40 animate-scale-in sm:h-28 sm:w-28">
+              <img
+                alt={`${restaurant.name} logo`}
+                className="h-full w-full object-cover"
+                src={brandAssets.logo}
+              />
+            </div>
+
             {/* Tag */}
             <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium tracking-wide backdrop-blur-sm animate-fade-in sm:mb-6 sm:gap-2 sm:px-5 sm:py-2 sm:text-sm">
               <Soup size={14} className="text-amber-300 sm:h-4 sm:w-4" />
@@ -738,19 +971,11 @@ const RestaurantHome = () => {
                 </div>
               </div>
 
-              {/* Image with glass quote */}
-              <div className={`relative overflow-hidden rounded-2xl shadow-soft-lg transition-all duration-700 sm:rounded-3xl ${
+              {/* TikTok Video Carousel with continuous transition */}
+              <div className={`relative w-full max-w-[360px] mx-auto transition-all duration-700 ${
                 infoVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
               }`} style={{ transitionDelay: '300ms' }}>
-                <div className="aspect-[4/3] sm:aspect-square lg:aspect-[4/5]">
-                  <img alt="Không gian quán" className="h-full w-full object-cover" src={infoPhoto} loading="lazy" />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4 rounded-xl border border-white/20 bg-white/85 p-3 backdrop-blur-xl sm:bottom-6 sm:left-6 sm:right-6 sm:rounded-2xl sm:p-4">
-                  <p className="text-center text-sm font-medium italic leading-relaxed text-on-surface sm:text-body-md">
-                    "Không gian ấm cúng, mang lại cảm giác thân thuộc như bữa cơm gia đình."
-                  </p>
-                </div>
+                <TikTokCarousel backgroundPhoto={infoPhoto} />
               </div>
             </div>
           </div>
@@ -837,8 +1062,8 @@ const RestaurantHome = () => {
             {/* Brand */}
             <div className="col-span-2 space-y-4 sm:col-span-2 md:col-span-1 md:space-y-5">
               <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#8f000d] to-[#c41e2a] sm:h-10 sm:w-10">
-                  <Utensils size={18} className="text-white" />
+                <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white sm:h-10 sm:w-10">
+                  <img alt={`${restaurant.name} logo`} className="h-full w-full object-cover" src={brandAssets.logo} />
                 </div>
                 <h3 className="font-heading text-lg font-bold sm:text-xl">{restaurant.name}</h3>
               </div>

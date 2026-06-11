@@ -8,6 +8,8 @@ import CartModal from '../components/CartModal';
 import ProductDetailModal from '../components/ProductDetailModal';
 import { publicApiUrl } from '../config/api';
 
+const restaurantLogo = import.meta.env.VITE_RESTAURANT_LOGO_URL || '/logo.png';
+
 const createIdempotencyKey = () => {
     if (window.crypto?.randomUUID) {
         return window.crypto.randomUUID();
@@ -452,8 +454,8 @@ const CustomerOrder = () => {
                 {/* Header chính */}
                 <div className="px-5 py-3 flex justify-between items-center max-w-lg mx-auto">
                     <div className="flex items-center gap-2.5">
-                        <div className="bg-gradient-to-tr from-primary to-orange-500 text-white p-2.5 rounded-2xl shadow-md shadow-primary/15">
-                            <ChefHat size={20} className="stroke-[2.5]" />
+                        <div className="h-10 w-10 overflow-hidden rounded-2xl bg-white shadow-md shadow-primary/15 ring-1 ring-primary/10">
+                            <img alt="Phở Hương Phú logo" className="h-full w-full object-cover" src={restaurantLogo} />
                         </div>
                         <div>
                             <h1 className="text-lg font-heading font-extrabold text-on-surface tracking-tight">
