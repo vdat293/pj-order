@@ -1,9 +1,9 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
 import CustomerOrder from './pages/CustomerOrder';
 import OrderStatus from './pages/OrderStatus';
 import RestaurantHome from './pages/RestaurantHome';
+import PublicMenu from './pages/PublicMenu';
 import Login from './pages/Login';
 import StaffDashboard from './pages/StaffDashboard';
 import MenuManagement from './pages/MenuManagement';
@@ -18,6 +18,9 @@ function App() {
         <Routes>
           {/* Trang chủ công khai của quán */}
           <Route path="/" element={<RestaurantHome />} />
+
+          {/* Menu công khai chỉ để xem */}
+          <Route path="/menu" element={<PublicMenu />} />
           
           {/* Trang đặt món của Khách hàng */}
           <Route path="/order/:tableCode" element={<CustomerOrder />} />

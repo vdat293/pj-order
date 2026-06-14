@@ -43,7 +43,6 @@ const restaurant = {
   mapEmbedUrl:
     import.meta.env.VITE_RESTAURANT_MAP_EMBED_URL ||
     'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d7833.321304983537!2d106.66432217570507!3d10.98896635523606!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3174d1005738666d%3A0x3a991deaa62fb0e2!2zUGjhu58gSMawxqFuZyBQaMO6ICggUGjhu58sIELDum4gQsOyLCBDxqFtIEfDoCwgTOG6qXUgQsOyICkgMTQgUGjhuqFtIFRo4buLIFTDom4!5e0!3m2!1svi!2s!4v1780752353605!5m2!1svi!2s',
-  orderPath: import.meta.env.VITE_DEFAULT_ORDER_PATH || ''
 };
 
 const brandAssets = {
@@ -94,7 +93,7 @@ const useReveal = (options = {}) => {
 };
 
 /* ─── Featured product card — mobile-first design ─── */
-const ProductFeatureCard = ({ product, label, tone = 'primary', onOrder, index = 0 }) => {
+const ProductFeatureCard = ({ product, label, tone = 'primary', onView, index = 0 }) => {
   const isGreen = tone === 'green';
   const [ref, isVisible] = useReveal();
 
@@ -151,9 +150,9 @@ const ProductFeatureCard = ({ product, label, tone = 'primary', onOrder, index =
                   : 'cursor-not-allowed bg-surface-container-high text-on-surface-variant'
               }`}
               disabled={!product.is_available}
-              onClick={onOrder}
+              onClick={onView}
             >
-              {product.is_available ? 'Đặt nhanh' : 'Hết món'}
+              {product.is_available ? 'Xem món' : 'Hết món'}
             </button>
           </div>
         </div>
@@ -482,12 +481,8 @@ const RestaurantHome = () => {
     return Array.from(names).slice(0, 8);
   }, [products]);
 
-  const handleOrderClick = () => {
-    if (restaurant.orderPath) {
-      navigate(restaurant.orderPath);
-      return;
-    }
-    document.getElementById('info')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const handleMenuViewClick = () => {
+    navigate('/menu');
   };
 
   /* Reveal refs */
@@ -498,7 +493,7 @@ const RestaurantHome = () => {
 
   const navLinks = [
     { label: 'Trang chủ', href: '#top' },
-    { label: 'Thực đơn', href: '#menu' },
+    { label: 'Thực đơn', href: '/menu' },
     { label: 'Giới thiệu', href: '#about' },
     { label: 'Liên hệ', href: '#info' }
   ];
@@ -698,7 +693,7 @@ const RestaurantHome = () => {
             <div className="flex flex-col items-center gap-3 animate-fade-in sm:flex-row sm:justify-center sm:gap-4" style={{ animationDelay: '400ms' }}>
               <a
                 className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#8f000d] to-[#c41e2a] px-6 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-all duration-300 active:scale-[0.97] sm:w-auto sm:px-8 sm:py-3.5"
-                href="#menu"
+                href="/menu"
               >
                 Xem thực đơn
                 <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1" />
@@ -808,7 +803,7 @@ const RestaurantHome = () => {
               </div>
               <button
                 className="group inline-flex items-center gap-2 self-start text-sm font-bold uppercase tracking-wider text-[#8f000d] transition-all duration-300 md:self-auto"
-                onClick={handleOrderClick}
+                onClick={handleMenuViewClick}
               >
                 Xem toàn bộ menu
                 <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-2 sm:h-[18px] sm:w-[18px]" />
@@ -834,7 +829,7 @@ const RestaurantHome = () => {
                   <ProductFeatureCard
                     key={product.id}
                     label={index === 0 ? 'Best Seller' : "Chef's Special"}
-                    onOrder={handleOrderClick}
+                    onView={handleMenuViewClick}
                     product={product}
                     tone={index === 0 ? 'primary' : 'green'}
                     index={index}
@@ -866,7 +861,7 @@ const RestaurantHome = () => {
                   </p>
                   <button
                     className="inline-flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-[#8f000d] transition-all duration-300"
-                    onClick={handleOrderClick}
+                    onClick={handleMenuViewClick}
                   >
                     Xem chi tiết <ArrowRight size={14} />
                   </button>
